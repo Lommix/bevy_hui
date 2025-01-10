@@ -74,7 +74,7 @@ fn setup(
     );
 
     // register custom node by passing a template handle
-    html_comps.register_with_spawn_fn("panel", server.load("demo/panel.html"), |mut cmd| {
+    html_comps.register_with_spawn_fn("panel", server.load("demo/panel.html"), |mut cmd, _| {
         cmd.insert(Name::new("Panel"));
     });
 

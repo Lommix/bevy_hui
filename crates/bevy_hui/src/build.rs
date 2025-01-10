@@ -418,10 +418,6 @@ impl<'w, 's> TemplateBuilder<'w, 's> {
         }
 
         // ----------------------
-        //tags
-        self.cmd.entity(entity).insert(Tags(node.tags.clone()));
-
-        // ----------------------
         // connections
         if let Some(id) = &node.id {
             self.ids.insert(id.clone(), entity);
@@ -452,6 +448,8 @@ impl<'w, 's> TemplateBuilder<'w, 's> {
         if let Some(outline) = styles.computed.outline.as_ref() {
             self.cmd.entity(entity).insert(outline.clone());
         }
+
+        let mut tags = node.tags.clone();
 
         match &node.node_type {
             // --------------------------------
@@ -530,7 +528,7 @@ impl<'w, 's> TemplateBuilder<'w, 's> {
             }
             NodeType::Custom(custom) => {
                 // mark children
-                self.comps.try_spawn(custom, entity, &mut self.cmd);
+                self.comps.try_spawn(custom, entity, &mut self.cmd, &mut tags);
                 if node.children.len() > 0 {
                     let slot_holder = self.cmd.spawn(Node::default()).id();
                     for child_node in node.children.iter() {
@@ -567,6 +565,10 @@ impl<'w, 's> TemplateBuilder<'w, 's> {
                 return;
             }
         };
+
+        // ----------------------
+        //tags
+        self.cmd.entity(entity).insert(Tags(tags));
 
         for child in node.children.iter() {
             let child_entity = self.cmd.spawn_empty().id();

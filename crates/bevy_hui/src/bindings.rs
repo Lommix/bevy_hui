@@ -27,7 +27,7 @@ impl Plugin for BindingPlugin {
 #[derive(Event)]
 pub struct UiChangedEvent;
 
-pub type SpawnFunction = dyn Fn(EntityCommands) + Send + Sync + 'static;
+pub type SpawnFunction = dyn Fn(EntityCommands, &mut HashMap<String, String>) + Send + Sync + 'static;
 
 #[derive(SystemParam)]
 pub struct HtmlFunctions<'w, 's> {
@@ -53,7 +53,7 @@ pub struct HtmlComponents<'w> {
 impl<'w> HtmlComponents<'w> {
     /// link any custom html node to your template
     pub fn register(&mut self, name: impl Into<String>, template: Handle<HtmlTemplate>) {
-        self.comps.register(name, move |mut cmd| {
+        self.comps.register(name, move |mut cmd, _| {
             cmd.insert(HtmlNode(template.clone()));
         });
     }
@@ -66,11 +66,11 @@ impl<'w> HtmlComponents<'w> {
         template: Handle<HtmlTemplate>,
         func: SF,
     ) where
-        SF: Fn(EntityCommands) + Send + Sync + 'static,
+        SF: Fn(EntityCommands, &mut HashMap<String, String>) + Send + Sync + 'static,
     {
-        self.comps.register(name, move |mut cmd| {
+        self.comps.register(name, move |mut cmd, tags| {
             cmd.insert(HtmlNode(template.clone()));
-            func(cmd);
+            func(cmd, tags);
         });
     }
 }
@@ -87,17 +87,17 @@ pub struct ComponentBindings(HashMap<String, Box<SpawnFunction>>);
 impl ComponentBindings {
     pub fn register<F>(&mut self, key: impl Into<String>, f: F)
     where
-        F: Fn(EntityCommands) + Send + Sync + 'static,
+        F: Fn(EntityCommands, &mut HashMap<String, String>) + Send + Sync + 'static,
     {
         let key: String = key.into();
         self.insert(key, Box::new(f));
     }
 
-    pub fn try_spawn(&self, key: &String, entity: Entity, cmd: &mut Commands) {
+    pub fn try_spawn(&self, key: &String, entity: Entity, cmd: &mut Commands, tags: &mut HashMap<String, String>) {
         self.get(key)
             .map(|f| {
                 let cmd = cmd.entity(entity);
-                f(cmd);
+                f(cmd, tags);
             })
             .unwrap_or_else(|| warn!("custom tag `{key}` is not bound"));
     }
