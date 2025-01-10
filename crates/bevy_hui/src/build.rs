@@ -568,7 +568,9 @@ impl<'w, 's> TemplateBuilder<'w, 's> {
 
         // ----------------------
         //tags
-        self.cmd.entity(entity).insert(Tags(tags));
+        if tags.len() > 0 {
+            self.cmd.entity(entity).insert(Tags(tags));
+        }
 
         for child in node.children.iter() {
             let child_entity = self.cmd.spawn_empty().id();
