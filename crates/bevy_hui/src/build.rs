@@ -469,10 +469,6 @@ impl<'w, 's> TemplateBuilder<'w, 's> {
             self.cmd.entity(entity).insert(outline.clone());
         }
 
-        if !styles.hover.is_empty() || !styles.pressed.is_empty() {
-            self.cmd.entity(entity).insert(Interaction::default());
-        }
-
         match &node.node_type {
             // --------------------------------
             // div node
