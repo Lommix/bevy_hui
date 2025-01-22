@@ -395,6 +395,7 @@ impl HoverTimer {
 #[reflect]
 pub struct ComputedStyle {
     pub node: Node,
+    pub color: Color,
     pub border_color: Color,
     pub border_radius: UiRect,
     pub image_mode: Option<NodeImageMode>,
@@ -421,6 +422,7 @@ impl Default for ComputedStyle {
     fn default() -> Self {
         Self {
             node: Node::default(),
+            color: Color::WHITE,
             border_color: Color::NONE,
             border_radius: UiRect::default(),
             background: Color::NONE,
@@ -531,6 +533,7 @@ impl HtmlStyle {
             StyleAttr::JustifyContent(justify_content) => {
                 self.computed.node.justify_content = justify_content
             }
+            StyleAttr::Color(color) => self.computed.color = color,
             StyleAttr::Zindex(index) => self.computed.zindex = Some(index),
             StyleAttr::GlobalZIndex(index) => self.computed.global_zindex = Some(index),
             StyleAttr::Margin(ui_rect) => self.computed.node.margin = ui_rect,

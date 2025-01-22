@@ -410,6 +410,7 @@ where
         b"outline" => map(parse_outline, StyleAttr::Outline)(value)?,
         b"background" => map(parse_color, StyleAttr::Background)(value)?,
         b"border_color" => map(parse_color, StyleAttr::BorderColor)(value)?,
+        b"color" => map(parse_color, StyleAttr::Color)(value)?,
         b"font" => map(as_string, StyleAttr::Font)(value)?,
         b"font_color" => map(parse_color, StyleAttr::FontColor)(value)?,
         b"font_size" => map(parse_float, StyleAttr::FontSize)(value)?,

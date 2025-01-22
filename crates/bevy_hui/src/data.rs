@@ -203,6 +203,7 @@ pub enum StyleAttr {
     // -----
     // color
     Background(Color),
+    Color(Color),
     ShadowColor(Color),
     ShadowOffset(Val, Val),
     ShadowSpread(Val),
