@@ -426,7 +426,7 @@ impl Default for ComputedStyle {
     fn default() -> Self {
         Self {
             node: Node::default(),
-            color: Color::NONE,
+            color: Color::WHITE,
             border_color: Color::NONE,
             border_radius: UiRect::default(),
             background: Color::NONE,
