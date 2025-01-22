@@ -470,7 +470,6 @@ impl<'w, 's> TemplateBuilder<'w, 's> {
         }
 
         if !styles.hover.is_empty() || !styles.pressed.is_empty() {
-            info!("interaction for {entity}");
             self.cmd.entity(entity).insert(Interaction::default());
         }
 
