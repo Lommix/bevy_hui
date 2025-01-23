@@ -224,6 +224,12 @@ impl<'w, 's> UiStyleQuery<'w, 's> {
                     });
                 }
             }
+            StyleAttr::Color(color) => {
+                _ = self
+                    .image
+                    .get_mut(entity)
+                    .map(|mut image| image.color = lerp_color(&computed.color, color, ratio));
+            }
             StyleAttr::Border(ui_rect) => {
                 style.border = lerp_rect(&computed.node.border, ui_rect, ratio)
             }
