@@ -119,6 +119,7 @@ fn continues_interaction_checking(
 pub struct UiStyleQuery<'w, 's> {
     pub server: Res<'w, AssetServer>,
     pub node: Query<'w, 's, &'static mut Node>,
+    pub image: Query<'w, 's, &'static mut ImageNode>,
     pub text_fonts: Query<'w, 's, &'static mut TextFont>,
     pub text_colors: Query<'w, 's, &'static mut TextColor>,
     pub background: Query<'w, 's, &'static mut BackgroundColor>,
@@ -132,6 +133,10 @@ impl<'w, 's> UiStyleQuery<'w, 's> {
     pub fn apply_computed(&mut self, entity: Entity, computed: &ComputedStyle) {
         _ = self.node.get_mut(entity).map(|mut node| {
             node.clone_from(&computed.node);
+        });
+
+        _ = self.image.get_mut(entity).map(|mut image| {
+            image.color = computed.color;
         });
 
         _ = self.text_fonts.get_mut(entity).map(|mut font| {
