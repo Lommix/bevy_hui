@@ -1,5 +1,10 @@
 use crate::{
-    animation::{AnimationDirection, ActiveAnimation}, compile::CompileContextEvent, data::{AttrTokens, HtmlTemplate, NodeType, XNode}, prelude::ComponentBindings, styles::{HoverTimer, HtmlStyle, PressedTimer}, util::SlotId
+    animation::{ActiveAnimation, AnimationDirection},
+    compile::CompileContextEvent,
+    data::{AttrTokens, HtmlTemplate, NodeType, XNode},
+    prelude::ComponentBindings,
+    styles::{HoverTimer, HtmlStyle, PressedTimer},
+    util::SlotId,
 };
 use bevy::{prelude::*, utils::HashMap};
 use nom::{
@@ -47,10 +52,14 @@ pub struct TemplateScope(Entity);
 /// to get access to the root.
 #[derive(Component, Debug, Clone, Default, Reflect, Deref, DerefMut)]
 #[reflect]
-pub struct TemplateProperties(HashMap<String, String>);
+pub struct TemplateProperties(pub HashMap<String, String>);
 
 impl TemplateProperties {
     pub fn with(mut self, key: &str, value: &str) -> Self {
+        self.insert(key.to_string(), value.to_string());
+        self
+    }
+    pub fn set(&mut self, key: &str, value: &str) -> &mut Self {
         self.insert(key.to_string(), value.to_string());
         self
     }
@@ -288,15 +297,23 @@ fn calculate_starting_frame(start: usize, end: usize, direction: &AnimationDirec
 
 fn build_animation(style: &HtmlStyle) -> Option<ActiveAnimation> {
     if style.computed.atlas.is_none() {
-        return None
+        return None;
     }
 
     let starting_frame = if !style.computed.frames.is_empty() {
-        calculate_starting_frame(style.computed.frames[0] as usize, style.computed.frames[style.computed.frames.len() - 1] as usize, &style.computed.direction)
+        calculate_starting_frame(
+            style.computed.frames[0] as usize,
+            style.computed.frames[style.computed.frames.len() - 1] as usize,
+            &style.computed.direction,
+        )
     } else {
         let atlas = style.computed.atlas.as_ref().unwrap();
 
-        calculate_starting_frame(0, (atlas.rows * atlas.columns) as usize - 1, &style.computed.direction)
+        calculate_starting_frame(
+            0,
+            (atlas.rows * atlas.columns) as usize - 1,
+            &style.computed.direction,
+        )
     };
 
     let starting_direction = match style.computed.direction {
@@ -306,7 +323,10 @@ fn build_animation(style: &HtmlStyle) -> Option<ActiveAnimation> {
     };
 
     Some(ActiveAnimation {
-        timer: Timer::new(Duration::from_secs_f32(1.0 / style.computed.fps as f32), TimerMode::Repeating),
+        timer: Timer::new(
+            Duration::from_secs_f32(1.0 / style.computed.fps as f32),
+            TimerMode::Repeating,
+        ),
         direction: starting_direction,
         frame: starting_frame,
         iterations: style.computed.iterations,
@@ -488,19 +508,21 @@ impl<'w, 's> TemplateBuilder<'w, 's> {
                             .cloned()
                             .unwrap_or_default(),
                         rect: styles.computed.image_region.clone(),
-                        texture_atlas: styles
-                            .computed
-                            .atlas
-                            .as_ref()
-                            .map(|atlas| {
-                                let atlas_layout = TextureAtlasLayout::from_grid(atlas.size, atlas.columns, atlas.rows, atlas.padding, atlas.offset);
-                                let atlas_handle = self.texture_atlases.add(atlas_layout);
+                        texture_atlas: styles.computed.atlas.as_ref().map(|atlas| {
+                            let atlas_layout = TextureAtlasLayout::from_grid(
+                                atlas.size,
+                                atlas.columns,
+                                atlas.rows,
+                                atlas.padding,
+                                atlas.offset,
+                            );
+                            let atlas_handle = self.texture_atlases.add(atlas_layout);
 
-                                TextureAtlas {
-                                    layout: atlas_handle,
-                                    index: starting_frame,
-                                }
-                            }),
+                            TextureAtlas {
+                                layout: atlas_handle,
+                                index: starting_frame,
+                            }
+                        }),
                         ..default()
                     },
                     styles,
