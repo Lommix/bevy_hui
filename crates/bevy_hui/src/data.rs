@@ -203,7 +203,6 @@ pub enum StyleAttr {
     // -----
     // color
     Background(Color),
-    Color(Color),
     ShadowColor(Color),
     ShadowOffset(Val, Val),
     ShadowSpread(Val),
@@ -227,6 +226,7 @@ pub enum StyleAttr {
 
     // -----
     // image
+    ImageColor(Color),
     ImageScaleMode(NodeImageMode),
     ImageRegion(Rect),
 }

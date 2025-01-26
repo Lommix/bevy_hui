@@ -224,7 +224,7 @@ impl<'w, 's> UiStyleQuery<'w, 's> {
                     });
                 }
             }
-            StyleAttr::Color(color) => {
+            StyleAttr::ImageColor(color) => {
                 _ = self
                     .image
                     .get_mut(entity)
@@ -544,7 +544,7 @@ impl HtmlStyle {
             StyleAttr::JustifyContent(justify_content) => {
                 self.computed.node.justify_content = justify_content
             }
-            StyleAttr::Color(color) => self.computed.image_color = color,
+            StyleAttr::ImageColor(color) => self.computed.image_color = color,
             StyleAttr::Zindex(index) => self.computed.zindex = Some(index),
             StyleAttr::GlobalZIndex(index) => self.computed.global_zindex = Some(index),
             StyleAttr::Margin(ui_rect) => self.computed.node.margin = ui_rect,

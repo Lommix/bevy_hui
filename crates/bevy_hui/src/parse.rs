@@ -419,7 +419,7 @@ where
         b"min_width" => map(parse_val, StyleAttr::MinWidth)(value)?,
         b"delay" => map(parse_delay, StyleAttr::Delay)(value)?,
         b"ease" => map(parse_easing, StyleAttr::Easing)(value)?,
-        b"image_color" => map(parse_color, StyleAttr::Color)(value)?,
+        b"image_color" => map(parse_color, StyleAttr::ImageColor)(value)?,
         b"image_region" => map(parse_rect, StyleAttr::ImageRegion)(value)?,
         b"position" => map(parse_position_type, StyleAttr::Position)(value)?,
         b"display" => map(parse_display, StyleAttr::Display)(value)?,
