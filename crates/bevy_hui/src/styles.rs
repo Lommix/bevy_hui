@@ -136,7 +136,7 @@ impl<'w, 's> UiStyleQuery<'w, 's> {
         });
 
         _ = self.image.get_mut(entity).map(|mut image| {
-            image.color = computed.color;
+            image.color = computed.image_color;
         });
 
         _ = self.text_fonts.get_mut(entity).map(|mut font| {
@@ -228,7 +228,7 @@ impl<'w, 's> UiStyleQuery<'w, 's> {
                 _ = self
                     .image
                     .get_mut(entity)
-                    .map(|mut image| image.color = lerp_color(&computed.color, color, ratio));
+                    .map(|mut image| image.color = lerp_color(&computed.image_color, color, ratio));
             }
             StyleAttr::Border(ui_rect) => {
                 style.border = lerp_rect(&computed.node.border, ui_rect, ratio)
@@ -406,9 +406,9 @@ impl HoverTimer {
 #[reflect]
 pub struct ComputedStyle {
     pub node: Node,
-    pub color: Color,
     pub border_color: Color,
     pub border_radius: UiRect,
+    pub image_color: Color,
     pub image_mode: Option<NodeImageMode>,
     pub image_region: Option<Rect>,
     pub shadow: Option<BoxShadow>,
@@ -433,7 +433,7 @@ impl Default for ComputedStyle {
     fn default() -> Self {
         Self {
             node: Node::default(),
-            color: Color::WHITE,
+            image_color: Color::WHITE,
             border_color: Color::NONE,
             border_radius: UiRect::default(),
             background: Color::NONE,
@@ -544,7 +544,7 @@ impl HtmlStyle {
             StyleAttr::JustifyContent(justify_content) => {
                 self.computed.node.justify_content = justify_content
             }
-            StyleAttr::Color(color) => self.computed.color = color,
+            StyleAttr::Color(color) => self.computed.image_color = color,
             StyleAttr::Zindex(index) => self.computed.zindex = Some(index),
             StyleAttr::GlobalZIndex(index) => self.computed.global_zindex = Some(index),
             StyleAttr::Margin(ui_rect) => self.computed.node.margin = ui_rect,

@@ -106,6 +106,12 @@ pub struct TemplateExpresions(Vec<AttrTokens>);
 #[reflect]
 pub struct Tags(HashMap<String, String>);
 
+impl Tags {
+    pub fn tags(&self) -> &HashMap<String, String> {
+        &self.0
+    }
+}
+
 /// holds ref to the raw uncompiled text content
 #[derive(Component, Deref, DerefMut)]
 pub struct ContentId(SlotId);
@@ -114,6 +120,12 @@ pub struct ContentId(SlotId);
 #[derive(Component, Debug, Default, Hash, Deref, DerefMut, Reflect)]
 #[reflect]
 pub struct UiId(String);
+
+impl UiId {
+    pub fn id(&self) -> &String {
+        &self.0
+    }
+}
 
 /// the entity behind `id` in `target="id"`
 #[derive(Component, Debug, DerefMut, Deref, Reflect)]

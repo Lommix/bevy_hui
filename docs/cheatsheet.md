@@ -51,6 +51,7 @@
 | grid_template_columns | `(5, auto)(2, 1fr)..` ref `GridTrack`                                                                    |
 | grid_row              | `auto` `span(u16)` `start_span(i16,u16)` `end_span(i16,u16)` `end(i16)` `start(i16)`                     |
 | grid_column           | `auto` `start_span(5,5)` `end_span(5,5)` `end(5)` `start(5)`                                             |
+| image_color           | ref `Color`                                                                                              |
 | image_mode            | `auto` `stretch` slice: `20px tiled(scale) stretch scale` tiled: `bool bool scale` **(scale=float)**     |
 | image_region          | `(float,float)(float,float)` = min->max image region rect                                                |
 | shadow_color          | ref `Color`                                                                                              |
