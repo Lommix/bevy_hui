@@ -1,15 +1,18 @@
 <template>
     <image
         display="grid"
-        image_mode="10px tile(1) tile(1) 4"
-        src="ui_panel.png"
+        image_mode="12px 5px 5px 5px tile(1) tile(1) 4"
+        src="ui_panel_window.png"
         border="2px"
         margin="10px"
-        padding="30px"
+        padding="60px 30px 30px 30px"
         row_gap="15px"
     >
         <text font_size="32">Widget Demo Scene</text>
-        <node
+        <image
+            src="ui_panel.png"
+            image_mode="5px tile(1) tile(1) 4"
+            padding="30px"
             display="grid"
             row_gap="5px"
         >
@@ -46,7 +49,7 @@
                 <hslider target="h1" on_change="notify_slider_change" />
                 <text id="h1" font_size="20">0.00</text>
             </node>
-        </node>
+        </image>
 
         <node display="grid">
             <text font_size="20">Minimal input</text>
