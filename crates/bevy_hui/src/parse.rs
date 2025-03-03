@@ -17,7 +17,7 @@ use bevy::{
 use nom::{
     branch::alt,
     bytes::complete::{is_not, tag, take_until, take_while, take_while1, take_while_m_n},
-    character::complete::{multispace0, multispace1, char},
+    character::complete::{multispace0, char},
     combinator::{complete, map, map_parser, not, rest},
     error::{context, ContextError, ErrorKind, ParseError},
     multi::{many0, separated_list1},
@@ -1850,6 +1850,18 @@ mod tests {
                 assert!(false, "");
             }
         }
+    }
+
+    #[test_case("10px" => Some(BorderRect::square(10.0)); "all sides")]
+    #[test_case("1px 2px" => Some(BorderRect::rectangle(1.0, 2.0)); "axis")]
+    #[test_case("1px 2px 3px 4px" => Some(BorderRect::from([4.0, 2.0, 1.0, 3.0])); "individual sides")]
+    // Invalid formats include any attempts to use a non-pixel unit type:
+    #[test_case("10vmax 10%" => None)]
+    #[test_case("100vw" => None)]
+    #[test_case("10vh 40px 5px 13%" => None)]
+    fn test_parse_border_rect(input: &str) -> Option<BorderRect> {
+        parse_border_rect::<VerboseError<_>>(input.as_bytes())
+            .map(|(_, border)| border).ok()
     }
 
     #[test_case(r#"10px stretch stretch 1"#)]
