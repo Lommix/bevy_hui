@@ -488,6 +488,13 @@ impl<'w, 's> TemplateBuilder<'w, 's> {
         if let Some(outline) = styles.computed.outline.as_ref() {
             self.cmd.entity(entity).insert(outline.clone());
         }
+        
+        // ----------------------
+        // pickable
+        #[cfg(feature = "picking")]
+        if let Some(pickable) = styles.computed.pickable.as_ref() {
+            self.cmd.entity(entity).insert(pickable.clone());
+        }
 
         match &node.node_type {
             // --------------------------------

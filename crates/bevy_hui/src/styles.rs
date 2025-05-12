@@ -449,6 +449,8 @@ pub struct ComputedStyle {
     pub easing: Option<EaseFunction>,
     pub zindex: Option<ZIndex>,
     pub global_zindex: Option<GlobalZIndex>,
+    #[cfg(feature = "picking")]
+    pub pickable: Option<Pickable>,
 }
 
 impl Default for ComputedStyle {
@@ -477,6 +479,8 @@ impl Default for ComputedStyle {
             easing: Some(EaseFunction::Linear),
             zindex: None,
             global_zindex: None,
+            #[cfg(feature = "picking")]
+            pickable: None
         }
     }
 }
@@ -662,6 +666,13 @@ impl HtmlStyle {
                     ));
                 }
             },
+            #[cfg(feature = "picking")]
+            StyleAttr::Pickable((should_block_lower, is_hoverable)) => {
+                self.computed.pickable = Some(Pickable {
+                    should_block_lower,
+                    is_hoverable,
+                })
+            }
             // StyleAttr::Font(font) => self.regular.font = server
             _ => (),
         };

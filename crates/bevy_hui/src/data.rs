@@ -230,6 +230,11 @@ pub enum StyleAttr {
     ImageColor(Color),
     ImageScaleMode(NodeImageMode),
     ImageRegion(Rect),
+
+    // -----
+    // picking
+    #[cfg(feature = "picking")]
+    Pickable((bool, bool)),
 }
 
 impl Default for StyleAttr {

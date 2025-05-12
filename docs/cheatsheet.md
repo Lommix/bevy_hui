@@ -58,7 +58,7 @@
 | shadow_blur           | ref `Val`                                                                                                |
 | shadow_spread         | ref `Val`                                                                                                |
 | shadow_offset         | ref `Val` `Val` shadow_offset="10px 10px"                                                                |
-| text_shadow           | `(2,1) #000` ref `Vec2 Color`                                                                   |
+| text_shadow           | `(2,1) #000` ref `Vec2 Color`                                                                            |
 | font                  | asset path                                                                                               |
 | font_color            | ref `Color`                                                                                              |
 | font_size             | float                                                                                                    |
@@ -91,7 +91,9 @@
 | aspect_ratio          | float                                                                                                    |
 | zindex                | int                                                                                                      |
 | global_zindex         | int                                                                                                      |
-| aspect_ratio          | float                                                                                                    |
+| pickable*             | bool, bool (should_block_lower, is_hoverable)                                                            |
+
+Enabled by `picking` feature
 
 ## Conditional Styles
 

@@ -476,6 +476,9 @@ where
         b"fps" => map(parse_number, StyleAttr::FPS)(value)?,
         b"frames" => map(parse_number_vec, StyleAttr::Frames)(value)?,
 
+        #[cfg(feature = "picking")]
+        b"pickable" => map(parse_pickable, |v| StyleAttr::Pickable(v))(value)?,
+
         _ => {
             let err = E::from_error_kind(
                 ident,
@@ -1501,6 +1504,21 @@ where
             map(terminated(parse_float, tag("s")), |v| v),
             map(terminated(parse_float, tag("ms")), |v| v / 1000.),
             map(parse_float, |v| v),
+        )),
+    )(input)
+}
+
+#[cfg(feature = "picking")]
+fn parse_pickable<'a, E>(input: &'a [u8]) -> IResult<&'a [u8], (bool, bool), E>
+where
+    E: ParseError<&'a [u8]> + ContextError<&'a [u8]>,
+{
+    context(
+        "is not valid pickable `should_block_lower: bool is_hoverable: bool`.
+                 Try `true false` to make blocking inactive object or `false true` to make object picking-transparent",
+        tuple((
+            preceded(multispace0, parse_bool),
+            preceded(multispace0, parse_bool),
         )),
     )(input)
 }
