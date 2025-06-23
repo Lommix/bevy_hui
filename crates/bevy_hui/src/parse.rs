@@ -1,5 +1,6 @@
+use crate::adaptor::AssetLoadAdaptor;
 use crate::animation::{AnimationDirection, Atlas};
-use crate::data::{Action, AttrTokens, Attribute, HtmlTemplate, StyleAttr, XNode};
+use crate::data::{Action, AttrTokens, Attribute, FontReference, HtmlTemplate, StyleAttr, XNode};
 use crate::prelude::NodeType;
 use crate::util::SlotMap;
 use bevy::math::{Rect, UVec2, Vec2};
@@ -41,7 +42,10 @@ impl std::fmt::Debug for XmlAttr<'_> {
     }
 }
 
-pub fn parse_template<'a, E>(input: &'a [u8]) -> IResult<&'a [u8], HtmlTemplate, E>
+pub fn parse_template<'a, 'b, E>(
+    input: &'a [u8], 
+    loader: &'b mut impl AssetLoadAdaptor
+) -> IResult<&'a [u8], HtmlTemplate, E>
 where
     E: ParseError<&'a [u8]> + ContextError<&'a [u8]>,
 {
@@ -80,7 +84,7 @@ where
                 };
             }
             _ => {
-                let (_, node) = from_raw_xml::<E>(child, &mut content)?;
+                let (_, node) = from_raw_xml::<E>(child, &mut content, loader)?;
                 root.push(node);
             }
         }
@@ -115,9 +119,10 @@ where
 }
 
 // try from
-fn from_raw_xml<'a, 'b, E>(
+fn from_raw_xml<'a, 'b, 'c, E>(
     mut xml: Xml<'a>,
     content_map: &'b mut SlotMap<String>,
+    loader: &'c mut impl AssetLoadAdaptor
 ) -> IResult<&'a [u8], XNode, E>
 where
     E: ParseError<&'a [u8]> + ContextError<&'a [u8]>,
@@ -135,12 +140,12 @@ where
     for attr in xml.attributes.iter() {
         let (_input, compiled_attr) = match xnode.node_type {
             NodeType::Custom(_) => {
-                match attribute_from_parts::<E>(attr.prefix, attr.key, attr.value) {
+                match attribute_from_parts::<E>(attr.prefix, attr.key, attr.value, loader) {
                     Ok(attr) => attr,
                     Err(_) => as_prop(attr.key, attr.value)?,
                 }
             }
-            _ => attribute_from_parts(attr.prefix, attr.key, attr.value)?,
+            _ => attribute_from_parts(attr.prefix, attr.key, attr.value, loader)?,
         };
 
         match compiled_attr {
@@ -162,7 +167,7 @@ where
     }
 
     for child in xml.children.drain(..) {
-        let (_, node) = from_raw_xml(child, content_map)?;
+        let (_, node) = from_raw_xml(child, content_map, loader)?;
         xnode.children.push(node);
     }
 
@@ -328,10 +333,11 @@ where
     Ok((key, Attribute::PropertyDefinition(key_str, value_str)))
 }
 
-pub(crate) fn attribute_from_parts<'a, E>(
+pub(crate) fn attribute_from_parts<'a, 'b, 'c, E>(
     prefix: Option<&'a [u8]>,
     key: &'a [u8],
     value: &'a [u8],
+    loader: &'c mut impl AssetLoadAdaptor
 ) -> IResult<&'a [u8], Attribute, E>
 where
     E: ParseError<&'a [u8]> + ContextError<&'a [u8]>,
@@ -384,7 +390,7 @@ where
             Ok((key, Attribute::Action(Action::OnChange(list))))
         }
         _ => {
-            let (_, style) = parse_style(prefix, key, value)?;
+            let (_, style) = parse_style(prefix, key, value, loader)?;
             Ok((key, Attribute::Style(style)))
         }
     }
@@ -395,6 +401,7 @@ fn parse_style<'a, E>(
     prefix: Option<&'a [u8]>,
     ident: &'a [u8],
     value: &'a [u8],
+    loader: &mut impl AssetLoadAdaptor
 ) -> IResult<&'a [u8], StyleAttr,E>
 where
     E: ParseError<&'a [u8]> + ContextError<&'a [u8]>,
@@ -413,7 +420,7 @@ where
         b"outline" => map(parse_outline, StyleAttr::Outline)(value)?,
         b"background" => map(parse_color, StyleAttr::Background)(value)?,
         b"border_color" => map(parse_color, StyleAttr::BorderColor)(value)?,
-        b"font" => map(as_string, StyleAttr::Font)(value)?,
+        b"font" => map(as_string, |str| StyleAttr::Font(FontReference::Handle((*loader).load(str))))(value)?,
         b"font_color" => map(parse_color, StyleAttr::FontColor)(value)?,
         b"font_size" => map(parse_float, StyleAttr::FontSize)(value)?,
         b"max_height" => map(parse_val, StyleAttr::MaxHeight)(value)?,
@@ -1860,8 +1867,17 @@ mod tests {
     #[test_case("../../example/assets/demo/button.xml")]
     #[test_case("../../example/assets/demo/card.xml")]
     fn test_parse_template_full(file_path: &str) {
+        struct DummyLoaderAdapter;
+        impl AssetAdapter for DummyLoaderAdapter {
+            type Asset = String;
+            type Error = std::io::Error;
+
+            fn load(&self, path: &str) -> Result<Self::Asset, Self::Error> {
+                std::fs::read_to_string(path)
+            }
+        }
         let input = std::fs::read_to_string(file_path).unwrap();
-        match parse_template::<nom::error::VerboseError<_>>(input.as_bytes()) {
+        match parse_template::<nom::error::VerboseError<_>>(input.as_bytes(), &mut DummyLoaderAdapter) {
             Ok((_, node)) => {
                 dbg!(node);
             }

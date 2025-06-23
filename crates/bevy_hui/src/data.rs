@@ -1,3 +1,4 @@
+use crate::adaptor::AssetLoadAdaptor;
 use crate::animation::{AnimationDirection, Atlas};
 use crate::prelude::*;
 use crate::util::{SlotId, SlotMap};
@@ -79,7 +80,7 @@ pub struct AttrTokens {
 }
 
 impl AttrTokens {
-    pub fn compile(&self, props: &TemplateProperties) -> Option<Attribute> {
+    pub fn compile(&self, props: &TemplateProperties, loader: &mut impl AssetLoadAdaptor) -> Option<Attribute> {
         let Some(prop_val) = props.get(&self.key) else {
             return None;
         };
@@ -88,6 +89,7 @@ impl AttrTokens {
             self.prefix.as_ref().map(|s| s.as_bytes()),
             self.ident.as_bytes(),
             prop_val.as_bytes(),
+            loader
         ) {
             Ok(val) => val,
             Err(_) => (
@@ -98,7 +100,7 @@ impl AttrTokens {
 
         // recursive compile, what could go wrong
         if let Attribute::Uncompiled(attr) = attr {
-            return attr.compile(props);
+            return attr.compile(props, loader);
         };
 
         Some(attr)
@@ -135,6 +137,13 @@ impl Action {
             }
         }
     }
+}
+
+#[derive(Debug, Clone, Reflect)]
+#[reflect]
+pub enum FontReference {
+    Handle(Handle<Font>),
+    Path(String),
 }
 
 #[derive(Debug, Clone, Reflect)]
@@ -197,7 +206,7 @@ pub enum StyleAttr {
     // -----
     // font
     FontSize(f32),
-    Font(String),
+    Font(FontReference),
     FontColor(Color),
 
     // -----

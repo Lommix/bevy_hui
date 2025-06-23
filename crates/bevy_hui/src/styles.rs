@@ -1,13 +1,15 @@
 use crate::{
     animation::{AnimationDirection, Atlas},
     build::InteractionObverser,
-    data::StyleAttr,
+    data::{FontReference, StyleAttr},
 };
 use bevy::{
     ecs::{query::QueryEntityError, system::SystemParam},
     prelude::*,
     ui::widget::NodeImageMode,
 };
+#[cfg(feature = "picking")]
+use bevy_picking::Pickable;
 use std::time::Duration;
 
 pub struct TransitionPlugin;
@@ -135,7 +137,7 @@ pub struct UiStyleQuery<'w, 's> {
 }
 
 impl<'w, 's> UiStyleQuery<'w, 's> {
-    pub fn apply_computed(&mut self, entity: Entity, computed: &ComputedStyle) {
+    pub fn apply_computed(&mut self, entity: Entity, computed: &mut ComputedStyle, server: &AssetServer) {
         _ = self.node.get_mut(entity).map(|mut node| {
             node.clone_from(&computed.node);
         });
@@ -146,7 +148,21 @@ impl<'w, 's> UiStyleQuery<'w, 's> {
 
         _ = self.text_fonts.get_mut(entity).map(|mut font| {
             font.font_size = computed.font_size;
-            font.font = computed.font.clone();
+            if let Some(h) = computed.font.as_ref() {
+                let (handle, update_style) = match h {
+                    FontReference::Handle(handle) => (handle.clone(), false),
+                    FontReference::Path(path) => (server.load(path), true),
+                };
+                if update_style {
+                    // update the computed style with the new font handle
+                    // this is needed to prevent the font from being reloaded
+                    // on every frame
+                    computed.font = Some(FontReference::Handle(handle.clone()));
+                }
+                if font.font != handle {
+                    font.font = handle;
+                }
+            }
         });
 
         _ = self.text_colors.get_mut(entity).map(|mut color| {
@@ -300,7 +316,15 @@ impl<'w, 's> UiStyleQuery<'w, 's> {
             }
             StyleAttr::Font(h) => {
                 _ = self.text_fonts.get_mut(entity).map(|mut txt| {
-                    txt.font = self.server.load(h);
+                    txt.font = match h {
+                        FontReference::Handle(handle) => {
+                            handle.clone()
+                        }
+                        FontReference::Path(path) => {
+                            warn!("Font path `{path}` is being loaded during a transition, this is not recommended!");
+                            self.server.load(path)
+                        }
+                    };
                 });
             }
             StyleAttr::ShadowColor(color) => {
@@ -350,13 +374,14 @@ impl<'w, 's> UiStyleQuery<'w, 's> {
 }
 
 fn update_node_style(
-    nodes: Query<(Entity, &HtmlStyle, Has<UiActive>)>,
+    mut nodes: Query<(Entity, &mut HtmlStyle, Has<UiActive>)>,
     mut ui_style: UiStyleQuery,
     hover_timer: Query<&HoverTimer>,
     press_timer: Query<&PressedTimer>,
+    server: Res<AssetServer>,
 ) {
-    for (entity, html_style, is_active) in nodes.iter() {
-        ui_style.apply_computed(entity, &html_style.computed);
+    for (entity, mut html_style, is_active) in nodes.iter_mut() {
+        ui_style.apply_computed(entity, &mut html_style.computed, &server);
 
         let hover_ratio = hover_timer
             .get(entity)
@@ -436,7 +461,7 @@ pub struct ComputedStyle {
     pub text_shadow: Option<TextShadow>,
     pub background: Color,
     pub outline: Option<Outline>,
-    pub font: Handle<Font>,
+    pub font: Option<FontReference>,
     pub font_size: f32,
     pub font_color: Color,
     pub atlas: Option<Atlas>,
@@ -466,7 +491,7 @@ impl Default for ComputedStyle {
             image_region: None,
             outline: None,
             text_shadow: None,
-            font: Handle::default(),
+            font: Default::default(),
             font_size: 12.,
             font_color: Color::WHITE,
             atlas: None,
@@ -480,7 +505,7 @@ impl Default for ComputedStyle {
             zindex: None,
             global_zindex: None,
             #[cfg(feature = "picking")]
-            pickable: None
+            pickable: None,
         }
     }
 }
@@ -500,14 +525,14 @@ impl From<Vec<StyleAttr>> for HtmlStyle {
     fn from(mut styles: Vec<StyleAttr>) -> Self {
         let mut out = HtmlStyle::default();
         for style in styles.drain(..) {
-            out.add_style_attr(style);
+            out.add_style_attr(style, None);
         }
         out
     }
 }
 
 impl HtmlStyle {
-    pub fn add_style_attr(&mut self, attr: StyleAttr) {
+    pub fn add_style_attr(&mut self, attr: StyleAttr, server: Option<&AssetServer>) {
         match attr {
             StyleAttr::Hover(style) => {
                 let style = *style;
@@ -673,7 +698,14 @@ impl HtmlStyle {
                     is_hoverable,
                 })
             }
-            // StyleAttr::Font(font) => self.regular.font = server
+            StyleAttr::Font(font) => self.computed.font = match (font, server) {
+                // opportunistically load the font if the asset server is available
+                (FontReference::Path(path), Some(server)) => {
+                    Some(FontReference::Handle(server.load(path)))
+                }
+                (handle@ FontReference::Handle(..), _) => Some(handle),
+                (path @ FontReference::Path(..), None) => Some(path)
+            },
             _ => (),
         };
     }

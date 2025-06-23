@@ -2,7 +2,7 @@
 #![allow(rustdoc::redundant_explicit_links)]
 #![doc = include_str!("../../../README.md")]
 
-use bevy::{app::{App, Plugin, Update}, prelude::{ImageNode, Query, Res}, time::Time};
+use bevy::app::{App, Plugin, Update};
 use animation::run_animations;
 
 mod animation;
@@ -16,6 +16,7 @@ mod load;
 mod parse;
 mod styles;
 mod util;
+mod adaptor;
 
 pub mod prelude {
     pub use crate::auto::{AutoLoadState, HuiAutoLoadPlugin};

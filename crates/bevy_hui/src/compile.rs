@@ -1,10 +1,8 @@
 use crate::{
-    build::{
+    adaptor::AssetServerAdaptor, build::{
         ContentId, HtmlNode, Tags, TemplateExpresions, TemplateProperties,
         TemplatePropertySubscriber, TemplateScope,
-    },
-    data::HtmlTemplate,
-    styles::HtmlStyle,
+    }, data::HtmlTemplate, styles::HtmlStyle
 };
 use bevy::prelude::*;
 use nom::{
@@ -83,13 +81,14 @@ fn compile_node(
     };
 
     if let Ok(expressions) = expressions.get(entity) {
+        let mut adapter = AssetServerAdaptor { server: &server };
         expressions
             .iter()
-            .for_each(|expr| match expr.compile(context) {
+            .for_each(|expr| match expr.compile(context, &mut adapter) {
                 Some(compiled) => {
                     match compiled {
                         crate::data::Attribute::Style(style_attr) => {
-                            node_style.add_style_attr(style_attr)
+                            node_style.add_style_attr(style_attr, Some(&server))
                         }
                         crate::data::Attribute::Action(action) => {
                             action.self_insert(cmd.entity(entity))
@@ -131,6 +130,7 @@ fn compile_context(
     subscriber: Query<&TemplatePropertySubscriber>,
     mut properties: Query<&mut TemplateProperties>,
     mut cmd: Commands,
+    server: Res<AssetServer>,
 ) {
     let entity = trigger.target();
     if let Ok((expressions, scope)) = expressions.get(entity) {
@@ -141,11 +141,14 @@ fn compile_context(
 
         // compile
         if let Some(parent_context) = scope.map(|s| properties.get(**s).ok()).flatten() {
+            let mut adapter = AssetServerAdaptor {
+                server: &server,
+            };
             let mut compiled_defintions = vec![];
             for expr in expressions.iter() {
                 // --------------------
                 //compile from parent
-                match expr.compile(parent_context) {
+                match expr.compile(parent_context, &mut adapter) {
                     Some(compiled) => match compiled {
                         crate::data::Attribute::PropertyDefinition(key, value) => {
                             compiled_defintions.push((key, value));
@@ -157,7 +160,7 @@ fn compile_context(
                     None => {
                         // check owned props
                         if let Ok(owned_ctx) = properties.get(entity) {
-                            match expr.compile(owned_ctx) {
+                            match expr.compile(owned_ctx, &mut adapter) {
                                 Some(crate::data::Attribute::PropertyDefinition(key, value)) => {
                                     compiled_defintions.push((key, value));
                                 }
