@@ -140,6 +140,15 @@ pub struct Scrollable {
 }
 
 fn init_scrollable(In(entity): In<Entity>, mut cmd: Commands, tags: Query<&Tags>) {
+    let scrollble = tags
+        .get(entity)
+        .ok()
+        .and_then(|tags| tags.get("scrollable"))
+        .map(|s| s == "true")
+        .unwrap_or(false);
+    if !scrollble {
+        return;
+    }
     let speed = tags
         .get(entity)
         .ok()
@@ -154,18 +163,13 @@ fn init_scrollable(In(entity): In<Entity>, mut cmd: Commands, tags: Query<&Tags>
 
 fn update_scroll(
     mut events: EventReader<MouseWheel>,
-    mut scrollables: Query<(&mut Scrollable, &UiTarget, &Interaction)>,
-    mut targets: Query<&mut HtmlStyle>,
+    mut scrollables: Query<(&mut Scrollable, &mut HtmlStyle)>,
     time: Res<Time>,
 ) {
     // whatever
     events.read().for_each(|ev| {
-        scrollables.iter_mut().for_each(|(mut scroll, target, _)| {
-            let Ok(mut style) = targets.get_mut(**target) else {
-                return;
-            };
-
-            scroll.offset = scroll.offset + ev.y.signum() * scroll.speed * time.delta_secs();
+        scrollables.iter_mut().for_each(|(mut scroll, mut style)| {
+            scroll.offset += ev.y.signum() * scroll.speed * time.delta_secs() * 1000.0;
             style.computed.node.top = Val::Px(scroll.offset);
         });
     });
@@ -232,7 +236,7 @@ impl LifeTime {
 fn cleaner(mut expired: Query<(Entity, &mut LifeTime)>, mut cmd: Commands, time: Res<Time>) {
     expired.iter_mut().for_each(|(entity, mut lifetime)| {
         if lifetime.tick(time.delta()).finished() {
-            cmd.entity(entity).despawn_recursive();
+            cmd.entity(entity).despawn();
         }
     });
 }

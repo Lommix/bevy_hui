@@ -2,7 +2,7 @@
     <property name="title">Default Title</property>
     <property name="primary">#000</property>
     <property name="secondary">#FFF</property>
-
+    <property name="scrollable">false</property>
     <node
         justify_content="center"
         align_items="center"
@@ -61,6 +61,8 @@
                     justify_content="center"
                     border_radius="auto auto 5px 5px"
                     id="to_collapse"
+                    on_spawn="scrollable"
+                    tag:scrollable="{scrollable}"
                 >
                     <slot />
                 </node>
