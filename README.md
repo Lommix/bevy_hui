@@ -113,7 +113,7 @@ fn startup(
     html_funcs.register("start_game", |In(entity): In<Entity>, mut state : ResMut<NextState<GameState>> |{
         state.set(GameState::Play);
     });
-
+}
 ```
 
 ## Putting it all together
@@ -162,7 +162,7 @@ fn setup(
     server: Res<AssetServer>,
 ) {
     cmd.spawn(Camera2dBundle::default());
-    cmd.spawn(HtmlNode(server.load("menu.html"));
+    cmd.spawn(HtmlNode(server.load("menu.html")));
 }
 ```
 

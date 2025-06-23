@@ -1862,19 +1862,17 @@ mod tests {
         };
     }
 
-    #[test_case("../../example/assets/demo/menu.xml")]
-    #[test_case("../../example/assets/demo/panel.xml")]
-    #[test_case("../../example/assets/demo/button.xml")]
-    #[test_case("../../example/assets/demo/card.xml")]
+    #[test_case("../../example/assets/demo/menu.html")]
+    #[test_case("../../example/assets/demo/panel.html")]
+    #[test_case("../../example/assets/demo/button.html")]
+    #[test_case("../../example/assets/demo/card.html")]
     fn test_parse_template_full(file_path: &str) {
+        use bevy::asset::{Handle, Asset, AssetPath};
         struct DummyLoaderAdapter;
-        impl AssetAdapter for DummyLoaderAdapter {
-            type Asset = String;
-            type Error = std::io::Error;
-
-            fn load(&self, path: &str) -> Result<Self::Asset, Self::Error> {
-                std::fs::read_to_string(path)
-            }
+        impl AssetLoadAdaptor for DummyLoaderAdapter {
+           fn load<'a, A: Asset>(&mut self, path: impl Into<AssetPath<'a>>) -> Handle<A> {
+                Handle::default()
+           }
         }
         let input = std::fs::read_to_string(file_path).unwrap();
         match parse_template::<nom::error::VerboseError<_>>(input.as_bytes(), &mut DummyLoaderAdapter) {
