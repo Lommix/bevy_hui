@@ -37,7 +37,7 @@ fn setup(
     cmd.spawn(Camera2d);
     cmd.spawn((
         HtmlNode(server.load("demo/menu.html")),
-        TemplateProperties::default().with("title", "Test-title"),
+        TemplateProperties::default().with("title", "Test-titleTest-titleTest-titleTest-titleTest-titleTest-titleTest-titleTest-title"),
     ));
 
     // register function bindings

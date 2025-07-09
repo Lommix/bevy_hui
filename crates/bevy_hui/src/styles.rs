@@ -128,6 +128,7 @@ pub struct UiStyleQuery<'w, 's> {
     pub image: Query<'w, 's, &'static mut ImageNode>,
     pub text_fonts: Query<'w, 's, &'static mut TextFont>,
     pub text_colors: Query<'w, 's, &'static mut TextColor>,
+    pub text_layouts: Query<'w, 's, &'static mut TextLayout>,
     pub text_shadows: Query<'w, 's, &'static mut TextShadow>,
     pub background: Query<'w, 's, &'static mut BackgroundColor>,
     pub border_radius: Query<'w, 's, &'static mut BorderRadius>,
@@ -137,7 +138,12 @@ pub struct UiStyleQuery<'w, 's> {
 }
 
 impl<'w, 's> UiStyleQuery<'w, 's> {
-    pub fn apply_computed(&mut self, entity: Entity, computed: &mut ComputedStyle, server: &AssetServer) {
+    pub fn apply_computed(
+        &mut self,
+        entity: Entity,
+        computed: &mut ComputedStyle,
+        server: &AssetServer,
+    ) {
         _ = self.node.get_mut(entity).map(|mut node| {
             node.clone_from(&computed.node);
         });
@@ -309,6 +315,11 @@ impl<'w, 's> UiStyleQuery<'w, 's> {
                     **tc = lerp_color(&computed.font_color, color, ratio);
                 });
             }
+            StyleAttr::TextLayout(text_layout) => {
+                _ = self.text_layouts.get_mut(entity).map(|mut tl|{
+                    *tl = *text_layout
+                })
+            },
             StyleAttr::FontSize(s) => {
                 _ = self.text_fonts.get_mut(entity).map(|mut txt| {
                     txt.font_size = computed.font_size.lerp(*s, ratio);
@@ -462,6 +473,7 @@ pub struct ComputedStyle {
     pub background: Color,
     pub outline: Option<Outline>,
     pub font: Option<FontReference>,
+    pub text_layout: TextLayout,
     pub font_size: f32,
     pub font_color: Color,
     pub atlas: Option<Atlas>,
@@ -494,6 +506,7 @@ impl Default for ComputedStyle {
             font: Default::default(),
             font_size: 12.,
             font_color: Color::WHITE,
+            text_layout: TextLayout::default(),
             atlas: None,
             delay: 0.,
             duration: 0.,
@@ -626,6 +639,7 @@ impl HtmlStyle {
             }
             StyleAttr::FontSize(f) => self.computed.font_size = f,
             StyleAttr::FontColor(color) => self.computed.font_color = color,
+            StyleAttr::TextLayout(text_layout) => self.computed.text_layout = text_layout,
             StyleAttr::Background(color) => self.computed.background = color,
             StyleAttr::Atlas(f) => self.computed.atlas = f,
             StyleAttr::Delay(f) => self.computed.delay = f,
@@ -698,14 +712,16 @@ impl HtmlStyle {
                     is_hoverable,
                 })
             }
-            StyleAttr::Font(font) => self.computed.font = match (font, server) {
-                // opportunistically load the font if the asset server is available
-                (FontReference::Path(path), Some(server)) => {
-                    Some(FontReference::Handle(server.load(path)))
+            StyleAttr::Font(font) => {
+                self.computed.font = match (font, server) {
+                    // opportunistically load the font if the asset server is available
+                    (FontReference::Path(path), Some(server)) => {
+                        Some(FontReference::Handle(server.load(path)))
+                    }
+                    (handle @ FontReference::Handle(..), _) => Some(handle),
+                    (path @ FontReference::Path(..), None) => Some(path),
                 }
-                (handle@ FontReference::Handle(..), _) => Some(handle),
-                (path @ FontReference::Path(..), None) => Some(path)
-            },
+            }
             _ => (),
         };
     }

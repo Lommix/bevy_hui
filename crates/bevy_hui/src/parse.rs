@@ -3,10 +3,12 @@ use crate::animation::{AnimationDirection, Atlas};
 use crate::data::{Action, AttrTokens, Attribute, FontReference, HtmlTemplate, StyleAttr, XNode};
 use crate::prelude::NodeType;
 use crate::util::SlotMap;
+use bevy::log::info;
 use bevy::math::{Rect, UVec2, Vec2};
 use bevy::platform::collections::HashMap;
 use bevy::prelude::EaseFunction;
 use bevy::sprite::{BorderRect, SliceScaleMode, TextureSlicer};
+use bevy::text::{JustifyText, LineBreak, TextLayout};
 use bevy::ui::widget::NodeImageMode;
 use bevy::ui::{
     AlignContent, AlignItems, AlignSelf, Display, FlexDirection, FlexWrap, GlobalZIndex,
@@ -43,8 +45,8 @@ impl std::fmt::Debug for XmlAttr<'_> {
 }
 
 pub fn parse_template<'a, 'b, E>(
-    input: &'a [u8], 
-    loader: &'b mut impl AssetLoadAdaptor
+    input: &'a [u8],
+    loader: &'b mut impl AssetLoadAdaptor,
 ) -> IResult<&'a [u8], HtmlTemplate, E>
 where
     E: ParseError<&'a [u8]> + ContextError<&'a [u8]>,
@@ -122,7 +124,7 @@ where
 fn from_raw_xml<'a, 'b, 'c, E>(
     mut xml: Xml<'a>,
     content_map: &'b mut SlotMap<String>,
-    loader: &'c mut impl AssetLoadAdaptor
+    loader: &'c mut impl AssetLoadAdaptor,
 ) -> IResult<&'a [u8], XNode, E>
 where
     E: ParseError<&'a [u8]> + ContextError<&'a [u8]>,
@@ -337,7 +339,7 @@ pub(crate) fn attribute_from_parts<'a, 'b, 'c, E>(
     prefix: Option<&'a [u8]>,
     key: &'a [u8],
     value: &'a [u8],
-    loader: &'c mut impl AssetLoadAdaptor
+    loader: &'c mut impl AssetLoadAdaptor,
 ) -> IResult<&'a [u8], Attribute, E>
 where
     E: ParseError<&'a [u8]> + ContextError<&'a [u8]>,
@@ -422,6 +424,7 @@ where
         b"border_color" => map(parse_color, StyleAttr::BorderColor)(value)?,
         b"font" => map(as_string, |str| StyleAttr::Font(FontReference::Handle((*loader).load(str))))(value)?,
         b"font_color" => map(parse_color, StyleAttr::FontColor)(value)?,
+        b"text_layout" =>  map(parse_text_layout, StyleAttr::TextLayout)(value)?,
         b"font_size" => map(parse_float, StyleAttr::FontSize)(value)?,
         b"max_height" => map(parse_val, StyleAttr::MaxHeight)(value)?,
         b"max_width" => map(parse_val, StyleAttr::MaxWidth)(value)?,
@@ -1554,6 +1557,52 @@ where
     ))(input)
 }
 
+fn parse_text_layout<'a, E>(input: &'a [u8]) -> IResult<&'a [u8], TextLayout, E>
+where
+    E: ParseError<&'a [u8]> + ContextError<&'a [u8]>,
+{
+    let (input, (justify, _, linebreak)) = context(
+        "Is not a valid `TextLayout`, try `layout-Value linerbreak-Value`",
+        tuple((parse_justify_text, multispace0, parse_linerbreak)),
+    )(input)?;
+
+    Ok((input, TextLayout::new(justify, linebreak)))
+}
+
+fn parse_justify_text<'a, E>(input: &'a [u8]) -> IResult<&'a [u8], JustifyText, E>
+where
+    E: ParseError<&'a [u8]> + ContextError<&'a [u8]>,
+{
+    context(
+        "is not a valid justify text",
+        alt((
+            map(tag("left"), |_| JustifyText::Left),
+            map(tag("center"), |_| JustifyText::Center),
+            map(tag("justified"), |_| JustifyText::Justified),
+            map(tag("right"), |_| JustifyText::Right),
+        )),
+    )(input)
+}
+
+fn parse_linerbreak<'a, E>(input: &'a [u8]) -> IResult<&'a [u8], LineBreak, E>
+where
+    E: ParseError<&'a [u8]> + ContextError<&'a [u8]>,
+{
+    context(
+        "is not a valid justify text",
+        alt((
+            map(tag("any_character"), |_| LineBreak::AnyCharacter),
+            map(tag("no_wrap"), |_| LineBreak::NoWrap),
+            map(tag("word_boundary"), |_| LineBreak::WordBoundary),
+            map(tag("word_or_character"), |_| LineBreak::WordOrCharacter),
+        )),
+    )(input)
+}
+/*
+alt((map(tuple((float, tag("px"))), |(_, _)| {
+                TextLayout::new(JustifyText::Left, LineBreak::AnyCharacter)
+            }),)),
+*/
 // rgba(1,1,1,1)
 fn parse_rgba_color<'a, E>(input: &'a [u8]) -> IResult<&'a [u8], Color, E>
 where
@@ -1867,15 +1916,18 @@ mod tests {
     #[test_case("../../example/assets/demo/button.html")]
     #[test_case("../../example/assets/demo/card.html")]
     fn test_parse_template_full(file_path: &str) {
-        use bevy::asset::{Handle, Asset, AssetPath};
+        use bevy::asset::{Asset, AssetPath, Handle};
         struct DummyLoaderAdapter;
         impl AssetLoadAdaptor for DummyLoaderAdapter {
-           fn load<'a, A: Asset>(&mut self, path: impl Into<AssetPath<'a>>) -> Handle<A> {
+            fn load<'a, A: Asset>(&mut self, _path: impl Into<AssetPath<'a>>) -> Handle<A> {
                 Handle::default()
-           }
+            }
         }
         let input = std::fs::read_to_string(file_path).unwrap();
-        match parse_template::<nom::error::VerboseError<_>>(input.as_bytes(), &mut DummyLoaderAdapter) {
+        match parse_template::<nom::error::VerboseError<_>>(
+            input.as_bytes(),
+            &mut DummyLoaderAdapter,
+        ) {
             Ok((_, node)) => {
                 dbg!(node);
             }

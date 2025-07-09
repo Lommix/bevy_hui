@@ -208,6 +208,7 @@ pub enum StyleAttr {
     FontSize(f32),
     Font(FontReference),
     FontColor(Color),
+    TextLayout(TextLayout),
 
     // -----
     // color

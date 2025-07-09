@@ -4,13 +4,17 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bevy = { version = "0.16", features = ["file_watcher", "multi_threaded", "bevy_remote"] }
+bevy = { version = "0.16", features = [
+    "file_watcher",
+    "multi_threaded",
+    "bevy_remote",
+] }
 bevy_aseprite_ultra = "0.5.0"
 bevy_hui = { path = "../crates/bevy_hui" }
 bevy_hui_widgets = { path = "../crates/bevy_hui_widgets" }
 maud = "0.26.0"
 rand = "0.8.5"
-
+bevy-inspector-egui = "0.31.0"
 [[bin]]
 name = "maud"
 path = "src/maud.rs"
@@ -26,3 +30,7 @@ path = "src/ui.rs"
 [[bin]]
 name = "animation"
 path = "src/animation.rs"
+
+[[bin]]
+name = "dialog"
+path = "src/dialog.rs"
