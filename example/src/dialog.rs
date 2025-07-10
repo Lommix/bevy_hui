@@ -23,16 +23,11 @@ fn main() {
         .run();
 }
 
-fn setup(
-    mut cmd: Commands,
-    server: Res<AssetServer>,
-
-    mut html_funcs: HtmlFunctions,
-    mut html_comps: HtmlComponents,
-) {
+fn setup(mut cmd: Commands, server: Res<AssetServer>, mut html_funcs: HtmlFunctions) {
     cmd.spawn(Camera2d);
     cmd.spawn(HtmlNode(server.load("demo/dialog.html")));
+    html_funcs.register("press", press);
 }
 fn press(In(entity): In<Entity>) {
-    info!("press")
+    info!("{:?}:press", entity)
 }

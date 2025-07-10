@@ -1,11 +1,11 @@
 <template>
+    <property name="press">press</property>
     <property name="title">Default Title</property>
-    <property name="context">Default ContextDefault ContextDefault ContextDefault ContextDefault Context</property>
-    <node display="grid" aspect_ratio="1.5" grid_template_rows="(1fr,3fr,1fr)" max_width="40%" max_height="30%"
-        justify_self="center" align_self="center" background="#ADD8E6" padding="10px" border_radius="20px">
+    <property name="context">Default Context</property>
+    <node display="grid" grid_template_rows="(1,1fr)(1,3fr)(1,1fr)" max_width="40%" justify_self="center" align_self="center"
+        background="#ADD8E6" padding="10px" border_radius="20px">
         <text display="grid" justify_self="center" font_color="#055" max_width="100%" max_height="100%" delay="0.2"
-            padding="10px" font_size="25" text_shadow="(1,1) #0FF" overflow="clip visible"
-            text_layout="left any_character">
+            padding="10px" font_size="25" text_shadow="(1,1) #0FF" overflow="hidden hidden">
             {title}
         </text>
         <text display="grid" font_color="#055" max_width="100%" width="auto" height="auto" align_self="start"
@@ -13,17 +13,16 @@
             padding="5px" margin="5px" overflow="clip visible">
             {context}
         </text>
-        <node display="grid" grid_template_columns="(1fr,3fr,1fr)" align_items="center" justify_content="center"
-            height="80px" width="100%" border="2px" hover:border_color="{primary}" border_radius="5px">
+        <node display="grid" grid_template_columns="(1,1fr)(1,3fr)(1,1fr)" height="100%" width="100%" border="2px"
+            border_radius="5px">
             <button display="grid" grid_column="start(1)" padding="10px" background="#008B8B" pressed:background="#0aa"
-                border_radius="10px">
+                border_radius="10px" on_press="{press}">
                 <text font_size="25">Canel</text>
             </button>
-            <node width="50%" height="100%" grid_column="start(2)">
-
+            <node display="grid" width="50%" height="100%" grid_column="start(2)">
             </node>
             <button display="grid" grid_column="start(3)" padding="10px" background="#008B8B" pressed:background="#0aa"
-                border_radius="10px">
+                border_radius="10px" on_press="{press}">
                 <text font_size="25">Comfirm</text>
             </button>
         </node>
