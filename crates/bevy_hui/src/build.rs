@@ -418,7 +418,6 @@ impl<'w, 's> TemplateBuilder<'w, 's> {
 
     fn build_node(&mut self, entity: Entity, node: &XNode) {
         let styles = HtmlStyle::from(node.styles.clone());
-
         // ----------------------
         // timers
         self.cmd
@@ -438,6 +437,12 @@ impl<'w, 's> TemplateBuilder<'w, 's> {
 
         if let Some(shadow) = styles.computed.text_shadow.as_ref() {
             self.cmd.entity(entity).insert(shadow.clone());
+        }
+
+        // ---------------------
+        // text_layout
+        if let Some(text_layout) = styles.computed.text_layout.as_ref() {
+            self.cmd.entity(entity).insert(text_layout.clone());
         }
 
         if entity != self.scope {
@@ -488,7 +493,7 @@ impl<'w, 's> TemplateBuilder<'w, 's> {
         if let Some(outline) = styles.computed.outline.as_ref() {
             self.cmd.entity(entity).insert(outline.clone());
         }
-        
+
         // ----------------------
         // pickable
         #[cfg(feature = "picking")]
