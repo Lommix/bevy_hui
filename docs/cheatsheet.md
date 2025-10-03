@@ -37,7 +37,7 @@
 | justify_self          | `auto` `center` `start` `stretch` `end` `baseline`                                                       |
 | justify_items         | `default` `center` `start` `end` `baseline`                                                              |
 | justify_content       | `center` `start` `flex_start` `stretch` `end` `space_evenly` `space_around` `space_between` `flex_start` |
-| flex_direction        | `auto` `center` `start` `stretch` `end` `baseline`                                                       |
+| flex_direction        | `row` `column` `column_reverse` `row_reverse` `default` `baseline`                                                       |
 | flex_wrap             | `wrap` `no_wrap` `wrap_reverse`                                                                          |
 | flex_grow             | float                                                                                                    |
 | flex_shrink           | float                                                                                                    |

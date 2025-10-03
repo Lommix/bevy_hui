@@ -769,7 +769,7 @@ where
     E: ParseError<&'a [u8]> + ContextError<&'a [u8]>,
 {
     context(
-        "flex_direction has no valid value. Try `auto` `center` `start` `stretch` `end` `baseline`",
+        "flex_direction has no valid value. Try `row` `column` `column_reverse` `row_reverse` `default`",
         alt((
             map(tag("row"), |_| FlexDirection::Row),
             map(tag("column"), |_| FlexDirection::Column),
