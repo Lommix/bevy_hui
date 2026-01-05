@@ -131,7 +131,7 @@ Time to be creative. Include your component in the next template.
         display="grid"
         grid_template_columns="(2, auto)"
         src="ui_panel.png"
-        image_scale_mode="10px tile(1) tile(1) 4"
+        image_mode="10px tile(1) tile(1) 4"
     >
         <my_button
             text="Start Game"
