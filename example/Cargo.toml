@@ -4,17 +4,17 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bevy = { version = "0.17", features = [
+bevy = { version = "0.18", features = [
   "file_watcher",
   "multi_threaded",
   "bevy_remote",
 ] }
-bevy_aseprite_ultra = "0.7.0"
+bevy_aseprite_ultra = "0.8.1"
 bevy_hui = { path = "../crates/bevy_hui" }
 bevy_hui_widgets = { path = "../crates/bevy_hui_widgets" }
 
-maud = "0.26.0"
-rand = "0.8.5"
+maud = "0.27.0"
+rand = "0.10.0"
 
 [[bin]]
 name = "maud"

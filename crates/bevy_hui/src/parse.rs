@@ -1130,10 +1130,8 @@ where
                     preceded(multispace0, parse_px),
                 )),
                 |(top, right, bottom, left)| BorderRect {
-                    left,
-                    right,
-                    top,
-                    bottom,
+                    min_inset: Vec2::new(left, top),
+                    max_inset: Vec2::new(right, bottom),
                 },
             )),
             // 10px 10px

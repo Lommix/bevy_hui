@@ -85,7 +85,7 @@ impl AttrTokens {
             return None;
         };
 
-        let (_, attr) = match crate::parse::attribute_from_parts::<nom::error::VerboseError<&[u8]>>(
+        let (_, attr) = match crate::parse::attribute_from_parts::<nom::error::Error<&[u8]>>(
             self.prefix.as_ref().map(|s| s.as_bytes()),
             self.ident.as_bytes(),
             prop_val.as_bytes(),

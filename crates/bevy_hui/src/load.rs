@@ -12,7 +12,7 @@ impl Plugin for LoaderPlugin {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, TypePath)]
 pub struct HtmlAssetLoader;
 impl AssetLoader for HtmlAssetLoader {
     type Asset = HtmlTemplate;
@@ -36,7 +36,7 @@ impl AssetLoader for HtmlAssetLoader {
             Err(err) => match err {
                 nom::Err::Incomplete(_) => Err(ParseError::Incomplete),
                 nom::Err::Error(err) | nom::Err::Failure(err) => {
-                    let file_path = load_context.path().to_str().unwrap_or_default();
+                    let file_path = load_context.path().to_string();
                     Err(ParseError::Nom(err.format(&bytes, &file_path)))
                 }
             },

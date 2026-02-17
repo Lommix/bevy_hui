@@ -131,7 +131,6 @@ pub struct UiStyleQuery<'w, 's> {
     pub text_layouts: Query<'w, 's, &'static mut TextLayout>,
     pub text_shadows: Query<'w, 's, &'static mut TextShadow>,
     pub background: Query<'w, 's, &'static mut BackgroundColor>,
-    pub border_radius: Query<'w, 's, &'static mut BorderRadius>,
     pub border_color: Query<'w, 's, &'static mut BorderColor>,
     pub shadow: Query<'w, 's, &'static mut BoxShadow>,
     pub outline: Query<'w, 's, &'static mut Outline>,
@@ -178,14 +177,7 @@ impl<'w, 's> UiStyleQuery<'w, 's> {
         _ = self.background.get_mut(entity).map(|mut background| {
             background.0 = computed.background;
         });
-
-        _ = self.border_radius.get_mut(entity).map(|mut radius| {
-            radius.top_left = computed.border_radius.top;
-            radius.top_right = computed.border_radius.right;
-            radius.bottom_right = computed.border_radius.bottom;
-            radius.bottom_left = computed.border_radius.left;
-        });
-
+        
         if let Some(computed_shadow) = computed.text_shadow.as_ref() {
             _ = self.text_shadows.get_mut(entity).map(|mut shadow| {
                 shadow.color = computed_shadow.color;
@@ -279,17 +271,17 @@ impl<'w, 's> UiStyleQuery<'w, 's> {
                     bcolor.bottom = color;
                 });
             }
-            StyleAttr::BorderRadius(ui_rect) => {
-                _ = self.border_radius.get_mut(entity).map(|mut bradius| {
-                    bradius.top_left = lerp_val(&computed.border_radius.top, &ui_rect.top, ratio);
-                    bradius.top_right =
-                        lerp_val(&computed.border_radius.right, &ui_rect.right, ratio);
-                    bradius.bottom_right =
-                        lerp_val(&computed.border_radius.bottom, &ui_rect.bottom, ratio);
-                    bradius.bottom_left =
-                        lerp_val(&computed.border_radius.left, &ui_rect.left, ratio);
-                });
-            }
+            // StyleAttr::BorderRadius(ui_rect) => {
+            //     _ = self.border_radius.get_mut(entity).map(|mut bradius| {
+            //         bradius.top_left = lerp_val(&computed.border_radius.top, &ui_rect.top, ratio);
+            //         bradius.top_right =
+            //             lerp_val(&computed.border_radius.right, &ui_rect.right, ratio);
+            //         bradius.bottom_right =
+            //             lerp_val(&computed.border_radius.bottom, &ui_rect.bottom, ratio);
+            //         bradius.bottom_left =
+            //             lerp_val(&computed.border_radius.left, &ui_rect.left, ratio);
+            //     });
+            // }
             StyleAttr::FlexDirection(flex_direction) => style.flex_direction = *flex_direction,
             StyleAttr::FlexWrap(flex_wrap) => style.flex_wrap = *flex_wrap,
             StyleAttr::FlexGrow(g) => style.flex_grow = computed.node.flex_grow.lerp(*g, ratio),

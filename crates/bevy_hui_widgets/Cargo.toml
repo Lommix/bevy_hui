@@ -11,8 +11,8 @@ license = "MIT OR Apache-2.0"
 categories = ["game-development"]
 
 [dependencies]
-bevy = { version = "0.17", default-features = false, features = ["bevy_ui"] }
+bevy = { version = "0.18", default-features = false, features = ["bevy_ui"] }
 bevy_hui = { path = "../bevy_hui" }
 
 [dev-dependencies]
-bevy = { version = "0.17", features = ["file_watcher", "multi_threaded"] }
+bevy = { version = "0.18", features = ["file_watcher", "multi_threaded"] }
