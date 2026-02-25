@@ -97,31 +97,14 @@ where
     ))
 }
 
-fn trim_comments0<'a, E>(input: &'a [u8]) -> IResult<&'a [u8], Vec<&'a [u8]>, E>
+fn trim_comments0<'a, E>(input: &'a [u8]) -> &'a [u8]
 where
     E: ParseError<&'a [u8]> + ContextError<&'a [u8]>,
 {
-    let mut comments = Vec::new();
-    let mut remaining = input;
-
-    loop {
-        // Try to find the next "<!--"
-        match take_until::<_, _, E>("<!--")(remaining) {
-            Ok((rest, _skipped)) => {
-                // Found "<!--", now parse the comment
-                match parse_comment::<E>(rest) {
-                    Ok((rest2, comment_body)) => {
-                        comments.push(comment_body);
-                        remaining = rest2;
-                    }
-                    Err(_) => break, // malformed comment, stop
-                }
-            }
-            Err(_) => break, // no more "<!--" found
-        }
+    match parse_comment::<E>(input) {
+        Ok((rest, _)) => rest,
+        Err(_) => input,
     }
-
-    Ok((remaining, comments))
 }
 
 fn parse_comment<'a, E>(input: &'a [u8]) -> IResult<&'a [u8], &'a [u8], E>
@@ -222,17 +205,42 @@ fn parse_xml_node<'a, E>(input: &'a [u8]) -> IResult<&'a [u8], Xml<'a>, E>
 where
     E: ParseError<&'a [u8]> + ContextError<&'a [u8]>,
 {
-    let (input, _) = trim_comments0(input)?;
-    let (input, _) = multispace0(input)?;
-
+    let input = trim_comments0::<E>(input);
+    let input = match multispace0(input) {
+        Ok((i, _)) => i,
+        Err(e) => {
+            eprintln!("FAILED AT: {}", String::from_utf8_lossy(input));
+            return Err(e);
+        }
+    };
     not(tag("</"))(input)?;
 
-    let (input, (prefix, start_name)) = preceded(
+    let (input, (prefix, start_name)) = match preceded(
         tag("<"),
         preceded(multispace0, tuple((parse_prefix0, take_snake))),
-    )(input)?;
-
-    let (input, attributes) = parse_xml_attr(input)?;
+    )(input)
+    {
+        Ok(e) => e,
+        Err(e) => {
+            eprintln!("Failed at parsing tag");
+            // eprintln!("FAILED AT PARSING TAG: {}", String::from_utf8_lossy(input));
+            return Err(e);
+        }
+    };
+    eprintln!(
+        "Proceeding start name: {}",
+        String::from_utf8_lossy(start_name)
+    );
+    let (input, attributes) = match parse_xml_attr(input) {
+        Ok(i) => i,
+        Err(e) => {
+            eprintln!(
+                "FAILED AT PARSING XML_ATTR: {}",
+                String::from_utf8_lossy(input)
+            );
+            return Err(e);
+        }
+    };
     let (input, is_empty) = alt((
         preceded(multispace0, tag("/>")).map(|_| true),
         preceded(multispace0, tag(">")).map(|_| false),
@@ -251,13 +259,43 @@ where
         ));
     }
 
-    let (input, children) = many0(parse_xml_node)(input)?;
+    // Parse content: interleave text and child nodes until we hit the closing tag
+    let mut input = trim_comments0::<E>(input);
+    let mut children = vec![];
+    let mut text_parts: Vec<&[u8]> = vec![];
 
-    let (input, _) = trim_comments0(input)?;
+    loop {
+        // Try to parse text content before next child or closing tag
+        let (rest, text) = take_while(|b: u8| b != b'<')(input)?;
+        if text.len() > 0 {
+            text_parts.push(text);
+        }
+        input = rest;
 
-    let (input, value) = map(take_while(|b: u8| b != b'<'), |c: &[u8]| {
-        (c.len() > 0).then_some(c)
-    })(input)?;
+        // Trim any comments
+        input = trim_comments0::<E>(input);
+
+        // Check if we've reached the closing tag
+        if let Ok(_) = tag::<_, _, E>("</")(input) {
+            break;
+        }
+
+        // Try to parse a child node
+        match parse_xml_node::<E>(input) {
+            Ok((rest, child)) => {
+                children.push(child);
+                input = trim_comments0::<E>(rest);
+            }
+            Err(_) => {
+                // No more children, should be at closing tag
+                break;
+            }
+        }
+    }
+
+    // Combine all text parts into a single value
+    // For typical cases there's only one text part; for mixed content, use the first
+    let value = text_parts.into_iter().find(|t| t.len() > 0);
 
     let (input, (end_prefix, end_name)) = parse_xml_end(input)?;
     if start_name != end_name || prefix != end_prefix {
@@ -284,8 +322,8 @@ fn parse_xml_end<'a, E>(input: &'a [u8]) -> IResult<&'a [u8], (Option<&'a [u8]>,
 where
     E: ParseError<&'a [u8]> + ContextError<&'a [u8]>,
 {
-    let (input, (_, prefix, end_tag, _)) =
-        tuple((tag("</"), parse_prefix0, take_snake, tag(">")))(input)?;
+    let (input, (_, prefix, end_tag, _, _)) =
+        tuple((tag("</"), parse_prefix0, take_snake, multispace0, tag(">")))(input)?;
 
     Ok((input, (prefix, end_tag)))
 }
@@ -1880,14 +1918,10 @@ mod tests {
     #[test_case(r#"  <!-- hello <tag/> <""/>world -->ok"#, "ok")]
     #[test_case("   <!-- hello world -->ok", "ok")]
     fn test_comments(input: &str, expected: &str) {
-        match trim_comments0::<VerboseError<_>>(&input.as_bytes()) {
-            Ok((rem, _)) => {
-                assert_eq!(expected, std::str::from_utf8(rem).unwrap());
-            }
-            Err(_err) => {
-                assert!(false, "");
-            }
-        };
+        assert_eq!(
+            expected,
+            std::str::from_utf8(trim_comments0::<VerboseError<_>>(&input.as_bytes())).unwrap()
+        );
     }
 
     #[test_case(r#"    pressed:background="fsdfsf"  pressed:background="fsdfsf"  <!-- test -->    pressed:background="fsdfsf" \n"#)]
@@ -1912,6 +1946,7 @@ mod tests {
     #[test_case(r#"<node pressed:background="rgb(1,1,1)" active="hello"><text p:hello="sdf">hello</text></node>"#)]
     #[test_case(r#"<slot/>"#)]
     #[test_case(r#"<node pressed:background="rgba(1,1,1,0)" active="hello" />"#)]
+    #[test_case(r#"<node><node name="press"></node></node>"#)]
     #[test_case(r#"<property name="press"><property name="press"></property></property>"#)]
     #[test_case(
         r#"
@@ -1946,14 +1981,15 @@ mod tests {
             }
         }
         let input = std::fs::read_to_string(file_path).unwrap();
-        match parse_template::<nom::error::VerboseError<_>>(
+        match parse_template::<crate::error::VerboseHtmlError>(
             input.as_bytes(),
             &mut DummyLoaderAdapter,
         ) {
             Ok((_, node)) => {
                 dbg!(node);
             }
-            Err(_err) => {
+            Err(err) => {
+                eprintln!("Error: {}", err.to_string());
                 assert!(false, "");
             }
         };
