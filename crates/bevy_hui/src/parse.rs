@@ -97,7 +97,7 @@ where
     ))
 }
 
-fn trim_comments0<'a, E>(input: &'a [u8]) -> &'a [u8]
+fn comments_trimmed<'a, E>(input: &'a [u8]) -> &'a [u8]
 where
     E: ParseError<&'a [u8]> + ContextError<&'a [u8]>,
 {
@@ -205,42 +205,15 @@ fn parse_xml_node<'a, E>(input: &'a [u8]) -> IResult<&'a [u8], Xml<'a>, E>
 where
     E: ParseError<&'a [u8]> + ContextError<&'a [u8]>,
 {
-    let input = trim_comments0::<E>(input);
-    let input = match multispace0(input) {
-        Ok((i, _)) => i,
-        Err(e) => {
-            eprintln!("FAILED AT: {}", String::from_utf8_lossy(input));
-            return Err(e);
-        }
-    };
+    let input = comments_trimmed::<E>(input);
+    let (input, _) = multispace0(input)?;
     not(tag("</"))(input)?;
 
-    let (input, (prefix, start_name)) = match preceded(
+    let (input, (prefix, start_name)) = preceded(
         tag("<"),
         preceded(multispace0, tuple((parse_prefix0, take_snake))),
-    )(input)
-    {
-        Ok(e) => e,
-        Err(e) => {
-            eprintln!("Failed at parsing tag");
-            // eprintln!("FAILED AT PARSING TAG: {}", String::from_utf8_lossy(input));
-            return Err(e);
-        }
-    };
-    eprintln!(
-        "Proceeding start name: {}",
-        String::from_utf8_lossy(start_name)
-    );
-    let (input, attributes) = match parse_xml_attr(input) {
-        Ok(i) => i,
-        Err(e) => {
-            eprintln!(
-                "FAILED AT PARSING XML_ATTR: {}",
-                String::from_utf8_lossy(input)
-            );
-            return Err(e);
-        }
-    };
+    )(input)?;
+    let (input, attributes) = parse_xml_attr(input)?;
     let (input, is_empty) = alt((
         preceded(multispace0, tag("/>")).map(|_| true),
         preceded(multispace0, tag(">")).map(|_| false),
@@ -260,7 +233,7 @@ where
     }
 
     // Parse content: interleave text and child nodes until we hit the closing tag
-    let mut input = trim_comments0::<E>(input);
+    let mut input = comments_trimmed::<E>(input);
     let mut children = vec![];
     let mut text_parts: Vec<&[u8]> = vec![];
 
@@ -273,7 +246,7 @@ where
         input = rest;
 
         // Trim any comments
-        input = trim_comments0::<E>(input);
+        input = comments_trimmed::<E>(input);
 
         // Check if we've reached the closing tag
         if let Ok(_) = tag::<_, _, E>("</")(input) {
@@ -284,7 +257,7 @@ where
         match parse_xml_node::<E>(input) {
             Ok((rest, child)) => {
                 children.push(child);
-                input = trim_comments0::<E>(rest);
+                input = comments_trimmed::<E>(rest);
             }
             Err(_) => {
                 // No more children, should be at closing tag
@@ -884,7 +857,7 @@ fn take_snake<'a, E>(input: &'a [u8]) -> IResult<&'a [u8], &'a [u8], E>
 where
     E: ParseError<&'a [u8]> + ContextError<&'a [u8]>,
 {
-    take_while(|b: u8| b.is_ascii_alphabetic() || b == b'_')(input)
+    take_while1(|b: u8| b.is_ascii_alphabetic() || b == b'_')(input)
 }
 
 fn take_identifier_starting_with_letter<'a, E>(input: &'a [u8]) -> IResult<&'a [u8], &'a [u8], E>
@@ -917,7 +890,7 @@ where
     E: ParseError<&'a [u8]> + ContextError<&'a [u8]>,
 {
     context(
-        "flex_wrap has no valid value. Try `wrap` `no_wrap` `wrap_reverse`",
+        "direction has no valid value. Try `forward` `reverse` `alternate_forward` `alternate_reverse`",
         alt((
             map(tag("forward"), |_| AnimationDirection::Forward),
             map(tag("reverse"), |_| AnimationDirection::Reverse),
@@ -1820,13 +1793,12 @@ fn from_hex_nib<'a, E>(input: &'a [u8]) -> IResult<&'a [u8], u8, E>
 where
     E: ParseError<&'a [u8]> + ContextError<&'a [u8]>,
 {
-    let str = std::str::from_utf8(input).expect("fix later");
+    let map_res_error =
+        || nom::Err::Error(E::from_error_kind(input, nom::error::ErrorKind::MapRes));
+    let str = std::str::from_utf8(input).map_err(|_| map_res_error())?;
     match u8::from_str_radix(format!("{}{}", str, str).as_str(), 16) {
         Ok(byte) => Ok(("".as_bytes(), byte)),
-        Err(_) => Err(nom::Err::Error(E::from_error_kind(
-            input,
-            nom::error::ErrorKind::MapRes,
-        ))),
+        Err(_) => Err(map_res_error()),
     }
 }
 
@@ -1920,7 +1892,7 @@ mod tests {
     fn test_comments(input: &str, expected: &str) {
         assert_eq!(
             expected,
-            std::str::from_utf8(trim_comments0::<VerboseError<_>>(&input.as_bytes())).unwrap()
+            std::str::from_utf8(comments_trimmed::<VerboseError<_>>(&input.as_bytes())).unwrap()
         );
     }
 
