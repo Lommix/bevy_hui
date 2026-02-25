@@ -204,29 +204,41 @@ fn compile_context(
     }
 }
 
-// this is bad, only 1 var allowed
-pub(crate) fn compile_content(input: &str, defs: &TemplateProperties) -> String {
-    let mut compiled = String::new();
-
-    let parts: Result<(&str, (&str, &str)), nom::Err<nom::error::Error<&str>>> = tuple((
+/// Finds the first `{variable}` occurrence in `input`.
+///
+/// Returns `(prefix, variable_name, remainder)` where:
+/// - `prefix`       – literal text before the opening `{`
+/// - `variable_name`– trimmed key between `{` and `}`
+/// - `remainder`    – text after the closing `}`
+///
+/// Returns `None` when there is no `{…}` pattern in `input`.
+pub(crate) fn find_template_var(input: &str) -> Option<(&str, &str, &str)> {
+    let result: Result<(&str, (&str, &str)), nom::Err<nom::error::Error<&str>>> = tuple((
         take_until("{"),
         delimited(tag("{"), preceded(multispace0, is_not("}")), tag("}")),
     ))(input);
 
-    let Ok((input, (literal, key))) = parts else {
-        compiled.push_str(input);
-        return compiled;
-    };
+    match result {
+        Ok((remainder, (prefix, var))) => Some((prefix, var.trim_end(), remainder)),
+        Err(_) => None,
+    }
+}
 
-    compiled.push_str(literal);
+/// Replace every `{variable}` token in `input` with the matching value from
+/// `defs`, leaving unresolved tokens as empty strings.
+pub(crate) fn compile_content(input: &str, defs: &TemplateProperties) -> String {
+    let mut compiled = String::new();
+    let mut remaining = input;
 
-    if let Some(value) = defs.get(key.trim_end()) {
-        compiled.push_str(value);
+    while let Some((prefix, key, rest)) = find_template_var(remaining) {
+        compiled.push_str(prefix);
+        if let Some(value) = defs.get(key) {
+            compiled.push_str(value);
+        }
+        remaining = rest;
     }
 
-    if input.len() > 0 {
-        compiled.push_str(&compile_content(input, defs));
-    }
-
+    // append any trailing literal text after the last `}`
+    compiled.push_str(remaining);
     compiled
 }

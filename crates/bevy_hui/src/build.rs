@@ -7,11 +7,7 @@ use crate::{
     util::SlotId,
 };
 use bevy::{platform::collections::HashMap, prelude::*};
-use nom::{
-    bytes::complete::{is_not, tag, take_until},
-    character::complete::multispace0,
-    sequence::{delimited, preceded, tuple},
-};
+
 use std::time::Duration;
 
 pub struct BuildPlugin;
@@ -630,10 +626,5 @@ impl<'w, 's> TemplateBuilder<'w, 's> {
 
 //@todo:dirty AF
 pub fn is_templated(input: &str) -> bool {
-    let parts: Result<(&str, (&str, &str)), nom::Err<nom::error::Error<&str>>> = tuple((
-        take_until("{"),
-        delimited(tag("{"), preceded(multispace0, is_not("}")), tag("}")),
-    ))(input);
-
-    parts.is_ok()
+    crate::compile::find_template_var(input).is_some()
 }

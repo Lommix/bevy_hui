@@ -338,17 +338,17 @@ fn parse_uncompiled<'a>(
     key: &'a [u8],
     value: &'a [u8],
 ) -> Option<Attribute> {
-    let result: IResult<&[u8], &[u8]> = delimited(tag("{"), is_not("}"), tag("}"))(value);
-    match result {
-        Ok((_, prop)) => {
-            return Some(Attribute::Uncompiled(AttrTokens {
-                prefix: prefix.map(|p| String::from_utf8_lossy(p).to_string()),
-                ident: String::from_utf8_lossy(key).to_string(),
-                key: String::from_utf8_lossy(prop).to_string(),
-            }));
-        }
-        Err(_) => None,
+    let value_str = std::str::from_utf8(value).ok()?;
+    let (literal_prefix, var_name, _) = crate::compile::find_template_var(value_str)?;
+    // Attribute values must start directly with `{var}` – no leading literal text.
+    if !literal_prefix.is_empty() {
+        return None;
     }
+    Some(Attribute::Uncompiled(AttrTokens {
+        prefix: prefix.map(|p| String::from_utf8_lossy(p).to_string()),
+        ident: String::from_utf8_lossy(key).to_string(),
+        key: var_name.to_string(),
+    }))
 }
 
 pub(crate) fn as_prop<'a, E>(key: &'a [u8], value: &'a [u8]) -> IResult<&'a [u8], Attribute, E>
@@ -1943,6 +1943,190 @@ mod tests {
         parse_border_rect::<VerboseError<_>>(input.as_bytes())
             .map(|(_, border)| border)
             .ok()
+    }
+
+    // -----------------------------------------------------------------
+    // Tests for the shared find_template_var / is_templated / compile_content
+    // (all three formerly had hand-rolled duplicate detection logic)
+    // -----------------------------------------------------------------
+
+    use crate::build::is_templated;
+    use crate::build::TemplateProperties;
+    use crate::compile::{compile_content, find_template_var};
+
+    // --- find_template_var ---
+
+    #[test]
+    fn find_template_var_simple() {
+        let (prefix, var, rest) = find_template_var("{name}").unwrap();
+        assert_eq!(prefix, "");
+        assert_eq!(var, "name");
+        assert_eq!(rest, "");
+    }
+
+    #[test]
+    fn find_template_var_with_prefix() {
+        let (prefix, var, rest) = find_template_var("Hello {world}!").unwrap();
+        assert_eq!(prefix, "Hello ");
+        assert_eq!(var, "world");
+        assert_eq!(rest, "!");
+    }
+
+    #[test]
+    fn find_template_var_multiple_returns_first() {
+        let (prefix, var, rest) = find_template_var("{a} and {b}").unwrap();
+        assert_eq!(prefix, "");
+        assert_eq!(var, "a");
+        assert_eq!(rest, " and {b}");
+    }
+
+    #[test]
+    fn find_template_var_trims_inner_whitespace() {
+        let (_, var, _) = find_template_var("{ padded_key }").unwrap();
+        assert_eq!(var, "padded_key");
+    }
+
+    #[test]
+    fn find_template_var_no_braces_returns_none() {
+        assert!(find_template_var("no variables here").is_none());
+    }
+
+    #[test]
+    fn find_template_var_empty_input_returns_none() {
+        assert!(find_template_var("").is_none());
+    }
+
+    // --- is_templated ---
+
+    #[test_case("{var}" => true)]
+    #[test_case("Hello {name}" => true)]
+    #[test_case("plain text" => false)]
+    #[test_case("" => false)]
+    fn test_is_templated(input: &str) -> bool {
+        is_templated(input)
+    }
+
+    // --- compile_content ---
+
+    #[test]
+    fn compile_content_single_var() {
+        let mut props = TemplateProperties::default();
+        props.set("name", "Alice");
+        assert_eq!(compile_content("{name}", &props), "Alice");
+    }
+
+    #[test]
+    fn compile_content_var_with_surrounding_text() {
+        let mut props = TemplateProperties::default();
+        props.set("greeting", "Hi");
+        assert_eq!(compile_content("{greeting}, world!", &props), "Hi, world!");
+    }
+
+    #[test]
+    fn compile_content_multiple_vars() {
+        let mut props = TemplateProperties::default();
+        props.set("first", "Bevy");
+        props.set("second", "HUI");
+        assert_eq!(compile_content("{first} + {second}", &props), "Bevy + HUI");
+    }
+
+    #[test]
+    fn compile_content_missing_var_leaves_empty() {
+        let props = TemplateProperties::default();
+        // unknown key → contributes empty string; surrounding text is preserved
+        assert_eq!(
+            compile_content("prefix {unknown} suffix", &props),
+            "prefix  suffix"
+        );
+    }
+
+    #[test]
+    fn compile_content_no_vars_returns_input_unchanged() {
+        let props = TemplateProperties::default();
+        assert_eq!(compile_content("plain text", &props), "plain text");
+    }
+
+    // --- parse_uncompiled (exercised via attribute_from_parts) ---
+
+    #[test]
+    fn parse_uncompiled_detects_template_variable() {
+        use crate::data::Attribute;
+        struct DummyLoader;
+        impl crate::adaptor::AssetLoadAdaptor for DummyLoader {
+            fn load<'a, A: bevy::prelude::Asset>(
+                &mut self,
+                _path: impl Into<bevy::asset::AssetPath<'a>>,
+            ) -> bevy::prelude::Handle<A> {
+                bevy::prelude::Handle::default()
+            }
+        }
+        let result = attribute_from_parts::<nom::error::Error<&[u8]>>(
+            None,
+            b"width",
+            b"{my_width}",
+            &mut DummyLoader,
+        );
+        match result.unwrap().1 {
+            Attribute::Uncompiled(tokens) => {
+                assert_eq!(tokens.ident, "width");
+                assert_eq!(tokens.key, "my_width");
+                assert!(tokens.prefix.is_none());
+            }
+            other => panic!("expected Uncompiled, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn parse_uncompiled_with_hover_prefix() {
+        use crate::data::Attribute;
+        struct DummyLoader;
+        impl crate::adaptor::AssetLoadAdaptor for DummyLoader {
+            fn load<'a, A: bevy::prelude::Asset>(
+                &mut self,
+                _path: impl Into<bevy::asset::AssetPath<'a>>,
+            ) -> bevy::prelude::Handle<A> {
+                bevy::prelude::Handle::default()
+            }
+        }
+        let result = attribute_from_parts::<nom::error::Error<&[u8]>>(
+            Some(b"hover"),
+            b"background",
+            b"{my_color}",
+            &mut DummyLoader,
+        );
+        match result.unwrap().1 {
+            Attribute::Uncompiled(tokens) => {
+                assert_eq!(tokens.prefix.as_deref(), Some("hover"));
+                assert_eq!(tokens.ident, "background");
+                assert_eq!(tokens.key, "my_color");
+            }
+            other => panic!("expected Uncompiled, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn parse_uncompiled_literal_value_is_not_a_template() {
+        use crate::data::Attribute;
+        struct DummyLoader;
+        impl crate::adaptor::AssetLoadAdaptor for DummyLoader {
+            fn load<'a, A: bevy::prelude::Asset>(
+                &mut self,
+                _path: impl Into<bevy::asset::AssetPath<'a>>,
+            ) -> bevy::prelude::Handle<A> {
+                bevy::prelude::Handle::default()
+            }
+        }
+        let result = attribute_from_parts::<nom::error::Error<&[u8]>>(
+            None,
+            b"width",
+            b"100px",
+            &mut DummyLoader,
+        );
+        // A plain literal must not be misidentified as a template variable.
+        match result.unwrap().1 {
+            Attribute::Style(_) => {}
+            other => panic!("expected Style, got {:?}", other),
+        }
     }
 
     #[test_case(r#"10px stretch stretch 1"#)]
