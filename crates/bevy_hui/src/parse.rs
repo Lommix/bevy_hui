@@ -1888,6 +1888,16 @@ mod tests {
         };
     }
 
+    #[test]
+    fn test_parse_xml_node_with_newlines() {
+        let input = "
+            <text font_size=\"20\" font_color=\"#ffcc00\" margin=\"0 0 15px 0\"
+              >Building</text
+            >
+            ";
+        test_parse_xml_node(input);
+    }
+
     #[test_case("../../example/assets/demo/menu.html")]
     #[test_case("../../example/assets/demo/panel.html")]
     #[test_case("../../example/assets/demo/button.html")]
@@ -2176,7 +2186,12 @@ mod tests {
         match parse_atlas::<VerboseHtmlError>(input.as_bytes()) {
             Ok((rem, atlas)) => {
                 assert_eq!(expected, atlas);
-                assert_eq!(rem.len(), 0, "unexpected trailing input: {:?}", std::str::from_utf8(rem));
+                assert_eq!(
+                    rem.len(),
+                    0,
+                    "unexpected trailing input: {:?}",
+                    std::str::from_utf8(rem)
+                );
             }
             Err(err) => {
                 panic!("parse_atlas failed for {:?}: {}", input, err);
