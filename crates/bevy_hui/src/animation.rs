@@ -2,7 +2,7 @@ use bevy::{math::UVec2, prelude::{Component, ImageNode, Query, Res}, reflect::Re
 
 use crate::styles::HtmlStyle;
 
-#[derive(Debug, Clone, Reflect)]
+#[derive(Debug, Clone, Reflect, PartialEq)]
 #[reflect]
 pub struct Atlas {
     pub size: UVec2,

@@ -24,7 +24,7 @@ use nom::{
     branch::alt,
     bytes::complete::{is_not, tag, take_until, take_while, take_while1, take_while_m_n},
     character::complete::{char, multispace0},
-    combinator::{complete, map, map_parser, not, recognize, rest},
+    combinator::{complete, map, map_parser, not, opt, recognize, rest},
     error::{context, ContextError, ErrorKind, ParseError},
     multi::{many0, separated_list1},
     number::complete::float,
@@ -927,76 +927,24 @@ where
 {
     context(
         "image_atlas has no valid value. Try `(32, 32) 1 7 p(0, 0) o(0, 0)`",
-        alt((
-            complete(map(
-                tuple((
-                    preceded(multispace0, parse_dimensions),
-                    preceded(multispace0, parse_number),
-                    preceded(multispace0, parse_number),
-                    preceded(tuple((multispace0, char('p'))), parse_dimensions),
-                    preceded(tuple((multispace0, char('o'))), parse_dimensions),
-                )),
-                |(size, columns, rows, padding, offset)| {
-                    Some(Atlas {
-                        size: size,
-                        columns: columns as u32,
-                        rows: rows as u32,
-                        padding: Some(padding),
-                        offset: Some(offset),
-                    })
-                },
+        map(
+            tuple((
+                preceded(multispace0, parse_dimensions),
+                preceded(multispace0, parse_number),
+                preceded(multispace0, parse_number),
+                opt(preceded(tuple((multispace0, char('p'))), parse_dimensions)),
+                opt(preceded(tuple((multispace0, char('o'))), parse_dimensions)),
             )),
-            complete(map(
-                tuple((
-                    preceded(multispace0, parse_dimensions),
-                    preceded(multispace0, parse_number),
-                    preceded(multispace0, parse_number),
-                    preceded(tuple((multispace0, char('p'))), parse_dimensions),
-                )),
-                |(size, columns, rows, padding)| {
-                    Some(Atlas {
-                        size: size,
-                        columns: columns as u32,
-                        rows: rows as u32,
-                        padding: Some(padding),
-                        offset: None,
-                    })
-                },
-            )),
-            complete(map(
-                tuple((
-                    preceded(multispace0, parse_dimensions),
-                    preceded(multispace0, parse_number),
-                    preceded(multispace0, parse_number),
-                    preceded(tuple((multispace0, char('o'))), parse_dimensions),
-                )),
-                |(size, columns, rows, offset)| {
-                    Some(Atlas {
-                        size: size,
-                        columns: columns as u32,
-                        rows: rows as u32,
-                        padding: None,
-                        offset: Some(offset),
-                    })
-                },
-            )),
-            complete(map(
-                tuple((
-                    preceded(multispace0, parse_dimensions),
-                    preceded(multispace0, parse_number),
-                    preceded(multispace0, parse_number),
-                )),
-                |(size, columns, rows)| {
-                    Some(Atlas {
-                        size: size,
-                        columns: columns as u32,
-                        rows: rows as u32,
-                        padding: None,
-                        offset: None,
-                    })
-                },
-            )),
-        )),
+            |(size, columns, rows, padding, offset)| {
+                Some(Atlas {
+                    size,
+                    columns: columns as u32,
+                    rows: rows as u32,
+                    padding,
+                    offset,
+                })
+            },
+        ),
     )(input)
 }
 
@@ -2007,5 +1955,48 @@ mod tests {
         //     sides_scale_mode: todo!(),
         //     max_corner_scale: todo!(),
         // };
+    }
+
+    // Atlas: size columns rows [p(padding)] [o(offset)]
+    #[test_case(
+        "(32, 32) 4 8 p(1, 2) o(3, 4)",
+        Some(Atlas { size: UVec2::new(32, 32), columns: 4, rows: 8,
+                     padding: Some(UVec2::new(1, 2)), offset: Some(UVec2::new(3, 4)) });
+        "size columns rows padding offset"
+    )]
+    #[test_case(
+        "(32, 32) 4 8 p(1, 2)",
+        Some(Atlas { size: UVec2::new(32, 32), columns: 4, rows: 8,
+                     padding: Some(UVec2::new(1, 2)), offset: None });
+        "size columns rows padding only"
+    )]
+    #[test_case(
+        "(32, 32) 4 8 o(3, 4)",
+        Some(Atlas { size: UVec2::new(32, 32), columns: 4, rows: 8,
+                     padding: None, offset: Some(UVec2::new(3, 4)) });
+        "size columns rows offset only"
+    )]
+    #[test_case(
+        "(32, 32) 4 8",
+        Some(Atlas { size: UVec2::new(32, 32), columns: 4, rows: 8,
+                     padding: None, offset: None });
+        "size columns rows only"
+    )]
+    #[test_case(
+        "16 10 5",
+        Some(Atlas { size: UVec2::new(16, 16), columns: 10, rows: 5,
+                     padding: None, offset: None });
+        "scalar size no optional fields"
+    )]
+    fn test_parse_atlas(input: &str, expected: Option<Atlas>) {
+        match parse_atlas::<VerboseHtmlError>(input.as_bytes()) {
+            Ok((rem, atlas)) => {
+                assert_eq!(expected, atlas);
+                assert_eq!(rem.len(), 0, "unexpected trailing input: {:?}", std::str::from_utf8(rem));
+            }
+            Err(err) => {
+                panic!("parse_atlas failed for {:?}: {}", input, err);
+            }
+        }
     }
 }
