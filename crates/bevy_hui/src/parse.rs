@@ -19,11 +19,12 @@ use bevy::{
     color::Color,
     ui::{UiRect, Val},
 };
+use nom::sequence::pair;
 use nom::{
     branch::alt,
     bytes::complete::{is_not, tag, take_until, take_while, take_while1, take_while_m_n},
     character::complete::{char, multispace0},
-    combinator::{complete, map, map_parser, not, rest},
+    combinator::{complete, map, map_parser, not, recognize, rest},
     error::{context, ContextError, ErrorKind, ParseError},
     multi::{many0, separated_list1},
     number::complete::float,
@@ -50,12 +51,6 @@ pub fn parse_template<'a, 'b, E>(
 where
     E: ParseError<&'a [u8]> + ContextError<&'a [u8]>,
 {
-    trim_comments0(input)?;
-    let (input, _xml_header) = alt((
-        delimited(tag("<?"), take_until("?>"), tag("?>")).map(Some),
-        |i| Ok((i, None)),
-    ))(input)?;
-
     let (_, mut xml) = parse_xml_node(input)?;
 
     let mut name = None;
@@ -106,7 +101,27 @@ fn trim_comments0<'a, E>(input: &'a [u8]) -> IResult<&'a [u8], Vec<&'a [u8]>, E>
 where
     E: ParseError<&'a [u8]> + ContextError<&'a [u8]>,
 {
-    many0(parse_comment::<E>)(input)
+    let mut comments = Vec::new();
+    let mut remaining = input;
+
+    loop {
+        // Try to find the next "<!--"
+        match take_until::<_, _, E>("<!--")(remaining) {
+            Ok((rest, _skipped)) => {
+                // Found "<!--", now parse the comment
+                match parse_comment::<E>(rest) {
+                    Ok((rest2, comment_body)) => {
+                        comments.push(comment_body);
+                        remaining = rest2;
+                    }
+                    Err(_) => break, // malformed comment, stop
+                }
+            }
+            Err(_) => break, // no more "<!--" found
+        }
+    }
+
+    Ok((remaining, comments))
 }
 
 fn parse_comment<'a, E>(input: &'a [u8]) -> IResult<&'a [u8], &'a [u8], E>
@@ -282,7 +297,7 @@ where
     many0(map(
         tuple((
             preceded(multispace0, parse_prefix0),
-            terminated(take_snake, tag("=")),
+            terminated(take_identifier_starting_with_letter, tag("=")),
             delimited(tag("\""), is_not("\""), tag("\"")),
         )),
         |(prefix, key, value)| XmlAttr { prefix, key, value },
@@ -832,6 +847,16 @@ where
     E: ParseError<&'a [u8]> + ContextError<&'a [u8]>,
 {
     take_while(|b: u8| b.is_ascii_alphabetic() || b == b'_')(input)
+}
+
+fn take_identifier_starting_with_letter<'a, E>(input: &'a [u8]) -> IResult<&'a [u8], &'a [u8], E>
+where
+    E: ParseError<&'a [u8]> + ContextError<&'a [u8]>,
+{
+    recognize(pair(
+        take_while1(|b: u8| b.is_ascii_alphabetic() || b == b'_'),
+        take_while(|b: u8| b.is_ascii_alphanumeric() || b == b'_'),
+    ))(input)
 }
 
 fn parse_image_scale_mode<'a, E>(input: &'a [u8]) -> IResult<&'a [u8], NodeImageMode, E>
@@ -1937,6 +1962,8 @@ mod tests {
     #[test_case(r#"hover:background="{color}""#)]
     #[test_case(r#"pressed:width="10%""#)]
     #[test_case(r#"active:height="10vw""#)]
+    #[test_case(r#"tag:internationalization="text""#)]
+    #[test_case(r#"tag:i18n="text""#)]
     fn parse_attribute_parts(input: &str) {
         match parse_xml_attr::<nom::error::VerboseError<_>>(input.as_bytes()) {
             Ok((rem, attrs)) => {
