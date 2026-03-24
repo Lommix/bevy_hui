@@ -3,6 +3,7 @@
 #![doc = include_str!("../../../README.md")]
 
 use bevy::app::{App, Plugin, Update};
+use bevy::ecs::schedule::{ApplyDeferred, IntoScheduleConfigs, SystemSet};
 use animation::run_animations;
 
 mod animation;
@@ -17,6 +18,12 @@ mod parse;
 mod styles;
 mod util;
 mod adaptor;
+
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub enum HuiSystems {
+    Build,
+    Style,
+}
 
 pub mod prelude {
     pub use crate::auto::{AutoLoadState, HuiAutoLoadPlugin};
@@ -45,6 +52,14 @@ impl Plugin for HuiPlugin {
             bindings::BindingPlugin,
             styles::TransitionPlugin,
             compile::CompilePlugin,
-        )).add_systems(Update, run_animations);
+        ))
+        .configure_sets(Update, HuiSystems::Build.before(HuiSystems::Style))
+        .add_systems(
+            Update,
+            ApplyDeferred
+                .after(HuiSystems::Build)
+                .before(HuiSystems::Style),
+        )
+        .add_systems(Update, run_animations);
     }
 }

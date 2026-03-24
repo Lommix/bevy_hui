@@ -15,7 +15,10 @@ use std::time::Duration;
 pub struct TransitionPlugin;
 impl Plugin for TransitionPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (continues_interaction_checking, update_node_style));
+        app.add_systems(
+            Update,
+            (continues_interaction_checking, update_node_style).in_set(crate::HuiSystems::Style),
+        );
         app.register_type::<PressedTimer>();
         app.register_type::<HoverTimer>();
         app.register_type::<InteractionTimer>();

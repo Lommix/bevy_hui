@@ -13,7 +13,12 @@ use std::time::Duration;
 pub struct BuildPlugin;
 impl Plugin for BuildPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (hotreload, spawn_ui, move_children_to_slot).chain())
+        app.add_systems(
+            Update,
+            (hotreload, spawn_ui, move_children_to_slot)
+                .chain()
+                .in_set(crate::HuiSystems::Build),
+        )
             .register_type::<TemplatePropertySubscriber>()
             .register_type::<TemplateExpresions>()
             .register_type::<TemplateProperties>()
