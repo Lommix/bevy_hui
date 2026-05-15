@@ -41,7 +41,7 @@ pub mod prelude {
     pub use crate::parse::parse_template;
     pub use crate::styles::{HoverTimer, HtmlStyle, InteractionTimer, PressedTimer, UiActive};
     pub use crate::HuiPlugin;
-    pub use crate::adaptor::AssetServerAdaptor;
+    pub use crate::adaptor::{AssetServerAdaptor, AssetLoadAdaptor};
 }
 pub struct HuiPlugin;
 impl Plugin for HuiPlugin {
