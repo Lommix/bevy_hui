@@ -155,20 +155,17 @@ impl<'w, 's> UiStyleQuery<'w, 's> {
         });
 
         _ = self.text_fonts.get_mut(entity).map(|mut font| {
-            font.font_size = computed.font_size;
+            font.font_size = FontSize::Px(computed.font_size);
             if let Some(h) = computed.font.as_ref() {
                 let (handle, update_style) = match h {
                     FontReference::Handle(handle) => (handle.clone(), false),
                     FontReference::Path(path) => (server.load(path), true),
                 };
                 if update_style {
-                    // update the computed style with the new font handle
-                    // this is needed to prevent the font from being reloaded
-                    // on every frame
                     computed.font = Some(FontReference::Handle(handle.clone()));
                 }
-                if font.font != handle {
-                    font.font = handle;
+                if font.font != FontSource::Handle(handle.clone()) {
+                    font.font = FontSource::Handle(handle);
                 }
             }
         });
@@ -332,18 +329,18 @@ impl<'w, 's> UiStyleQuery<'w, 's> {
             }
             StyleAttr::FontSize(s) => {
                 _ = self.text_fonts.get_mut(entity).map(|mut txt| {
-                    txt.font_size = computed.font_size.lerp(*s, ratio);
+                    txt.font_size = FontSize::Px(computed.font_size.lerp(*s, ratio));
                 });
             }
             StyleAttr::Font(h) => {
                 _ = self.text_fonts.get_mut(entity).map(|mut txt| {
                     txt.font = match h {
                         FontReference::Handle(handle) => {
-                            handle.clone()
+                            FontSource::Handle(handle.clone())
                         }
                         FontReference::Path(path) => {
                             warn!("Font path `{path}` is being loaded during a transition, this is not recommended!");
-                            self.server.load(path)
+                            FontSource::Handle(self.server.load(path))
                         }
                     };
                 });

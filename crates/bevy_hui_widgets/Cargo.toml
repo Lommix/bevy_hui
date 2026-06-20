@@ -2,7 +2,7 @@
 name = "bevy_hui_widgets"
 authors = ["Lorenz Mielke"]
 description = "A collection of bevy components and systems to build widgets with `bevy_hui`."
-version = "0.5.0"
+version = "0.6.0"
 edition = "2021"
 readme = "README.md"
 keywords = ["bevy", "ui", "xml", "html", "dsl"]
@@ -11,8 +11,8 @@ license = "MIT OR Apache-2.0"
 categories = ["game-development"]
 
 [dependencies]
-bevy = { version = "0.18", default-features = false, features = ["bevy_ui"] }
+bevy = { version = "0.19", default-features = false, features = ["bevy_ui"] }
 bevy_hui = { path = "../bevy_hui" }
 
 [dev-dependencies]
-bevy = { version = "0.18", features = ["file_watcher", "multi_threaded"] }
+bevy = { version = "0.19", features = ["file_watcher", "multi_threaded"] }

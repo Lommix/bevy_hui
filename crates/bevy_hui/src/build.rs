@@ -260,6 +260,8 @@ fn move_children_to_slot(
 fn spawn_ui(
     mut cmd: Commands,
     mut unbuild: Query<(Entity, &HtmlNode, &mut TemplateProperties), Without<FullyBuild>>,
+    parents: Query<&ChildOf>,
+    unsloted: Query<&UnslotedChildren>,
     assets: Res<Assets<HtmlTemplate>>,
     server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
@@ -268,6 +270,14 @@ fn spawn_ui(
     unbuild
         .iter_mut()
         .for_each(|(root_entity, handle, mut state)| {
+            if parents.get(root_entity).is_ok_and(|parent| {
+                unsloted
+                    .iter()
+                    .any(|children| children.0 == parent.parent())
+            }) {
+                return;
+            }
+
             let Some(template) = assets.get(&**handle) else {
                 return;
             };
@@ -527,6 +537,7 @@ impl<'w, 's> TemplateBuilder<'w, 's> {
 
                 img.insert((
                     ImageNode {
+                        visual_box: VisualBox::BorderBox,
                         image: node
                             .src
                             .as_ref()
@@ -632,4 +643,44 @@ impl<'w, 's> TemplateBuilder<'w, 's> {
 //@todo:dirty AF
 pub fn is_templated(input: &str) -> bool {
     crate::compile::find_template_var(input).is_some()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy::asset::AssetApp;
+
+    #[test]
+    fn component_build_waits_until_slot_projection() {
+        let mut app = App::new();
+        app.add_plugins((MinimalPlugins, AssetPlugin::default(), BuildPlugin))
+            .init_asset::<HtmlTemplate>()
+            .init_asset::<TextureAtlasLayout>()
+            .init_resource::<ComponentBindings>();
+
+        let template = app.world_mut().resource_mut::<Assets<HtmlTemplate>>().add(
+            HtmlTemplate {
+                name: None,
+                properties: default(),
+                root: vec![XNode::default()],
+                content: default(),
+            },
+        );
+        let holder = app.world_mut().spawn_empty().id();
+        let component = app.world_mut().spawn(HtmlNode(template)).id();
+        app.world_mut().entity_mut(holder).add_child(component);
+        let owner = app.world_mut().spawn(UnslotedChildren(holder)).id();
+
+        app.update();
+        assert!(!app.world().entity(component).contains::<FullyBuild>());
+
+        app.world_mut()
+            .entity_mut(owner)
+            .remove::<UnslotedChildren>();
+        let parent = app.world_mut().spawn_empty().id();
+        app.world_mut().entity_mut(parent).add_child(component);
+        app.update();
+
+        assert!(app.world().entity(component).contains::<FullyBuild>());
+    }
 }
