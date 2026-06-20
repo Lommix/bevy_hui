@@ -59,10 +59,13 @@ fn setup(
                 .map(|s| Animation::tag(s))
                 .unwrap_or(Animation::default());
 
-            cmd.entity(entity).insert(AseAnimation {
-                aseprite: server.load(ase_path),
-                animation,
-            });
+            cmd.entity(entity).insert((
+                AseAnimation {
+                    aseprite: server.load(ase_path),
+                    animation,
+                },
+                ImageNode::default(),
+            ));
         },
     );
 
