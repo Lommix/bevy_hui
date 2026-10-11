@@ -5,6 +5,7 @@ use crate::util::{SlotId, SlotMap};
 use bevy::ecs::system::EntityCommands;
 use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
+use bevy::text::{LetterSpacing, LineHeight};
 use bevy::ui::widget::NodeImageMode;
 
 #[derive(Debug, Default, Reflect)]
@@ -180,7 +181,7 @@ pub enum StyleAttr {
     // border
     Border(UiRect),
     BorderColor(Color),
-    BorderRadius(UiRect),
+    BorderRadius(BorderRadius),
     Outline(Outline),
 
     // ------------
@@ -205,10 +206,14 @@ pub enum StyleAttr {
 
     // -----
     // font
-    FontSize(f32),
+    FontSize(FontSize),
     Font(FontReference),
     FontColor(Color),
     TextLayout(TextLayout),
+    LineHeight(LineHeight),
+    LetterSpacing(LetterSpacing),
+    FontWeight(FontWeight),
+    FontStyle(FontStyle),
 
     // -----
     // color

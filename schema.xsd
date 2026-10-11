@@ -449,6 +449,46 @@
 				</xs:appinfo>
 			</xs:annotation>
 		</xs:attribute>
+		<xs:attribute name="line_height">
+
+			<xs:annotation>
+				<xs:documentation></xs:documentation>
+				<xs:appinfo>
+					<hover:namespaceInfo xmlns:hover="http://example.com/hover"/>
+					<pressed:namespaceInfo xmlns:pressed="http://example.com/pressed"/>
+				</xs:appinfo>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attribute name="letter_spacing">
+
+			<xs:annotation>
+				<xs:documentation></xs:documentation>
+				<xs:appinfo>
+					<hover:namespaceInfo xmlns:hover="http://example.com/hover"/>
+					<pressed:namespaceInfo xmlns:pressed="http://example.com/pressed"/>
+				</xs:appinfo>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attribute name="font_weight">
+
+			<xs:annotation>
+				<xs:documentation></xs:documentation>
+				<xs:appinfo>
+					<hover:namespaceInfo xmlns:hover="http://example.com/hover"/>
+					<pressed:namespaceInfo xmlns:pressed="http://example.com/pressed"/>
+				</xs:appinfo>
+			</xs:annotation>
+		</xs:attribute>
+		<xs:attribute name="font_style">
+
+			<xs:annotation>
+				<xs:documentation></xs:documentation>
+				<xs:appinfo>
+					<hover:namespaceInfo xmlns:hover="http://example.com/hover"/>
+					<pressed:namespaceInfo xmlns:pressed="http://example.com/pressed"/>
+				</xs:appinfo>
+			</xs:annotation>
+		</xs:attribute>
 		<xs:attribute name="duration">
 
 			<xs:annotation>

@@ -7,13 +7,15 @@ use bevy::math::{Rect, UVec2, Vec2};
 use bevy::platform::collections::HashMap;
 use bevy::prelude::EaseFunction;
 use bevy::sprite::{BorderRect, SliceScaleMode, TextureSlicer};
-use bevy::text::{Justify, LineBreak, TextLayout};
+use bevy::text::{
+    FontSize, FontStyle, FontWeight, Justify, LetterSpacing, LineBreak, LineHeight, TextLayout,
+};
 use bevy::ui::widget::{NodeImageMode, TextShadow};
 use bevy::ui::{
-    AlignContent, AlignItems, AlignSelf, Display, FlexDirection, FlexWrap, GlobalZIndex,
-    GridAutoFlow, GridPlacement, GridTrack, JustifyContent, JustifyItems, JustifySelf, Outline,
-    Overflow, OverflowAxis, VisualBox, OverflowClipMargin, PositionType, RepeatedGridTrack,
-    ZIndex,
+    AlignContent, AlignItems, AlignSelf, BorderRadius, CornerRadius, Display, FlexDirection,
+    FlexWrap, GlobalZIndex, GridAutoFlow, GridPlacement, GridTrack, JustifyContent, JustifyItems,
+    JustifySelf, MaxTrackSizingFunction, MinTrackSizingFunction, Outline, Overflow, OverflowAxis,
+    VisualBox, OverflowClipMargin, PositionType, RepeatedGridTrack, ZIndex,
 };
 use bevy::{
     color::Color,
@@ -23,8 +25,8 @@ use nom::sequence::pair;
 use nom::{
     branch::alt,
     bytes::complete::{is_not, tag, take_until, take_while, take_while1, take_while_m_n},
-    character::complete::{char, multispace0},
-    combinator::{complete, map, map_parser, not, opt, recognize, rest},
+    character::complete::{char, digit1, multispace0},
+    combinator::{complete, eof, map, map_parser, not, opt, recognize, rest},
     error::{context, ContextError, ErrorKind, ParseError},
     multi::{many0, separated_list1},
     number::complete::float,
@@ -443,14 +445,18 @@ where
         b"padding" => map(parse_ui_rect, StyleAttr::Padding)(value)?,
         b"margin" => map(parse_ui_rect, StyleAttr::Margin)(value)?,
         b"border" => map(parse_ui_rect, StyleAttr::Border)(value)?,
-        b"border_radius" => map(parse_ui_rect, StyleAttr::BorderRadius)(value)?,
+        b"border_radius" => map(parse_border_radius, StyleAttr::BorderRadius)(value)?,
         b"outline" => map(parse_outline, StyleAttr::Outline)(value)?,
         b"background" => map(parse_color, StyleAttr::Background)(value)?,
         b"border_color" => map(parse_color, StyleAttr::BorderColor)(value)?,
         b"font" => map(as_string, |str| StyleAttr::Font(FontReference::Handle((*loader).load(str))))(value)?,
         b"font_color" => map(parse_color, StyleAttr::FontColor)(value)?,
         b"text_layout" =>  map(parse_text_layout, StyleAttr::TextLayout)(value)?,
-        b"font_size" => map(parse_float, StyleAttr::FontSize)(value)?,
+        b"font_size" => map(parse_font_size, StyleAttr::FontSize)(value)?,
+        b"line_height" => map(parse_line_height, StyleAttr::LineHeight)(value)?,
+        b"letter_spacing" => map(parse_letter_spacing, StyleAttr::LetterSpacing)(value)?,
+        b"font_weight" => map(parse_font_weight, StyleAttr::FontWeight)(value)?,
+        b"font_style" => map(parse_font_style, StyleAttr::FontStyle)(value)?,
         b"max_height" => map(parse_val, StyleAttr::MaxHeight)(value)?,
         b"max_width" => map(parse_val, StyleAttr::MaxWidth)(value)?,
         b"min_height" => map(parse_val, StyleAttr::MinHeight)(value)?,
@@ -536,6 +542,29 @@ where
     E: nom::error::ParseError<&'a [u8]>,
 {
     nom::number::complete::float(input)
+}
+
+/// like [parse_float] but never consumes an `e` exponent,
+/// so unit suffixes starting with `e` (`em`) stay parseable
+fn parse_unit_float<'a, E>(input: &'a [u8]) -> IResult<&'a [u8], f32, E>
+where
+    E: nom::error::ParseError<&'a [u8]>,
+{
+    let (rest, bytes) = recognize(preceded(
+        opt(alt((char('+'), char('-')))),
+        alt((
+            map(tuple((digit1, opt(preceded(char('.'), digit1)))), |_| ()),
+            map(tuple((opt(digit1), char('.'), digit1)), |_| ()),
+        )),
+    ))(input)?;
+
+    match std::str::from_utf8(bytes)
+        .ok()
+        .and_then(|s| s.parse::<f32>().ok())
+    {
+        Some(val) => Ok((rest, val)),
+        None => Err(nom::Err::Error(E::from_error_kind(input, ErrorKind::Float))),
+    }
 }
 
 fn parse_easing<'a, E>(input: &'a [u8]) -> IResult<&'a [u8], EaseFunction, E>
@@ -1093,6 +1122,42 @@ where
     )(input)
 }
 
+/// convert string values to [BorderRadius]
+/// 10px/% single
+/// 10px/% 10px axis
+/// 10px 10px 10px 10px rect
+/// `10px 10px / 5px 5px` horizontal / vertical corner lists
+fn parse_border_radius<'a, E>(input: &'a [u8]) -> IResult<&'a [u8], BorderRadius, E>
+where
+    E: ParseError<&'a [u8]> + ContextError<&'a [u8]>,
+{
+    terminated(
+        context(
+            "is not a valid `BorderRadius`, try all:`10px` axis:`10px 10px` full:`10px 10px 10px 10px` elliptical:`10px 10px / 5px 5px`",
+            alt((
+                // 10px 10px / 5px 5px
+                complete(map(
+                    tuple((parse_ui_rect, preceded(tag("/"), parse_ui_rect))),
+                    |(horizontal, vertical)| BorderRadius {
+                        top_left: CornerRadius::new(horizontal.top, vertical.top),
+                        top_right: CornerRadius::new(horizontal.right, vertical.right),
+                        bottom_right: CornerRadius::new(horizontal.bottom, vertical.bottom),
+                        bottom_left: CornerRadius::new(horizontal.left, vertical.left),
+                    },
+                )),
+                // 10px
+                complete(map(parse_ui_rect, |rect| BorderRadius {
+                    top_left: rect.top.into(),
+                    top_right: rect.right.into(),
+                    bottom_right: rect.bottom.into(),
+                    bottom_left: rect.left.into(),
+                })),
+            )),
+        ),
+        pair(multispace0, eof),
+    )(input)
+}
+
 /// Convert string values to [BorderRect]
 /// Valid options:
 /// - 10px - all sides
@@ -1218,13 +1283,16 @@ where
     E: ParseError<&'a [u8]> + ContextError<&'a [u8]>,
 {
     let (input, track) = context(
-        "Is not a valid `GriTrack`, try `(float/int) + px/%/fr/flex/vh/vw/vmin/vmax` or `auto`, `min`, `max`",
+        "Is not a valid `GriTrack`, try `(float/int) + px/%/fr/flex/em/rem/vh/vw/vmin/vmax` or `auto`, `min`, `max`, `minmax(min, max)`",
         delimited(
             multispace0,
             alt((
+                parse_grid_track_minmax,
                 map(tag("auto"), |_| GridTrack::auto()),
                 map(tag("min"), |_| GridTrack::min_content()),
                 map(tag("max"), |_| GridTrack::max_content()),
+                map(tuple((parse_unit_float, tag("em"))), |(val, _)| GridTrack::em(val)),
+                map(tuple((parse_unit_float, tag("rem"))), |(val, _)| GridTrack::rem(val)),
                 map(tuple((float, tag("px"))), |(val, _)| GridTrack::px(val)),
                 map(tuple((float, tag("%"))), |(val, _)| GridTrack::percent(val)),
                 map(tuple((float, tag("fr"))), |(val, _)| GridTrack::fr(val)),
@@ -1241,9 +1309,129 @@ where
     Ok((input, track))
 }
 
+// minmax(1rem, 10em)
+// minmax(auto, 5fr)
+fn parse_grid_track_minmax<'a, E>(input: &'a [u8]) -> IResult<&'a [u8], GridTrack, E>
+where
+    E: ParseError<&'a [u8]> + ContextError<&'a [u8]>,
+{
+    context(
+        "Is not a valid `minmax` track, try `minmax(min, max)` with (float/int) + px/%/em/rem/vh/vw/vmin/vmax or `auto`, `min`, `max`",
+        map(
+            preceded(
+                tag("minmax"),
+                delimited(
+                    tag("("),
+                    tuple((
+                        preceded(multispace0, parse_track_min_sizing),
+                        preceded(
+                            tuple((multispace0, tag(","), multispace0)),
+                            parse_track_max_sizing,
+                        ),
+                    )),
+                    preceded(multispace0, tag(")")),
+                ),
+            ),
+            |(min, max)| GridTrack::minmax(min, max),
+        ),
+    )(input)
+}
+
+fn parse_track_min_sizing<'a, E>(input: &'a [u8]) -> IResult<&'a [u8], MinTrackSizingFunction, E>
+where
+    E: ParseError<&'a [u8]> + ContextError<&'a [u8]>,
+{
+    alt((
+        map(tag("auto"), |_| MinTrackSizingFunction::Auto),
+        map(tag("min"), |_| MinTrackSizingFunction::MinContent),
+        map(tag("max"), |_| MinTrackSizingFunction::MaxContent),
+        map(tuple((parse_unit_float, tag("em"))), |(val, _)| {
+            MinTrackSizingFunction::Em(val)
+        }),
+        map(tuple((parse_unit_float, tag("rem"))), |(val, _)| {
+            MinTrackSizingFunction::Rem(val)
+        }),
+        map(tuple((float, tag("px"))), |(val, _)| {
+            MinTrackSizingFunction::Px(val)
+        }),
+        map(tuple((float, tag("%"))), |(val, _)| {
+            MinTrackSizingFunction::Percent(val)
+        }),
+        map(tuple((float, tag("vh"))), |(val, _)| {
+            MinTrackSizingFunction::Vh(val)
+        }),
+        map(tuple((float, tag("vw"))), |(val, _)| {
+            MinTrackSizingFunction::Vw(val)
+        }),
+        map(tuple((float, tag("vmin"))), |(val, _)| {
+            MinTrackSizingFunction::VMin(val)
+        }),
+        map(tuple((float, tag("vmax"))), |(val, _)| {
+            MinTrackSizingFunction::VMax(val)
+        }),
+    ))(input)
+}
+
+fn parse_track_max_sizing<'a, E>(input: &'a [u8]) -> IResult<&'a [u8], MaxTrackSizingFunction, E>
+where
+    E: ParseError<&'a [u8]> + ContextError<&'a [u8]>,
+{
+    alt((
+        map(tag("auto"), |_| MaxTrackSizingFunction::Auto),
+        map(tag("min"), |_| MaxTrackSizingFunction::MinContent),
+        map(tag("max"), |_| MaxTrackSizingFunction::MaxContent),
+        map(tuple((parse_unit_float, tag("em"))), |(val, _)| {
+            MaxTrackSizingFunction::Em(val)
+        }),
+        map(tuple((parse_unit_float, tag("rem"))), |(val, _)| {
+            MaxTrackSizingFunction::Rem(val)
+        }),
+        map(tuple((float, tag("px"))), |(val, _)| {
+            MaxTrackSizingFunction::Px(val)
+        }),
+        map(tuple((float, tag("%"))), |(val, _)| {
+            MaxTrackSizingFunction::Percent(val)
+        }),
+        map(tuple((float, tag("fr"))), |(val, _)| {
+            MaxTrackSizingFunction::Fraction(val)
+        }),
+        map(tuple((float, tag("flex"))), |(val, _)| {
+            MaxTrackSizingFunction::Fraction(val)
+        }),
+        map(tuple((float, tag("vh"))), |(val, _)| {
+            MaxTrackSizingFunction::Vh(val)
+        }),
+        map(tuple((float, tag("vw"))), |(val, _)| {
+            MaxTrackSizingFunction::Vw(val)
+        }),
+        map(tuple((float, tag("vmin"))), |(val, _)| {
+            MaxTrackSizingFunction::VMin(val)
+        }),
+        map(tuple((float, tag("vmax"))), |(val, _)| {
+            MaxTrackSizingFunction::VMax(val)
+        }),
+    ))(input)
+}
+
 // (5, auto)
 // (2, 150px)
+// minmax(1rem, 10em)
 fn parse_grid_track_repeated<'a, E>(input: &'a [u8]) -> IResult<&'a [u8], RepeatedGridTrack, E>
+where
+    E: ParseError<&'a [u8]> + ContextError<&'a [u8]>,
+{
+    alt((
+        parse_grid_track_repeated_counted,
+        preceded(
+            multispace0,
+            map(parse_grid_track_minmax, RepeatedGridTrack::from),
+        ),
+    ))(input)
+}
+
+fn parse_grid_track_repeated_counted<'a, E>(
+    input: &'a [u8],
+) -> IResult<&'a [u8], RepeatedGridTrack, E>
 where
     E: ParseError<&'a [u8]> + ContextError<&'a [u8]>,
 {
@@ -1262,13 +1450,19 @@ where
     )(input)?;
 
     let (_, track): (&[u8], RepeatedGridTrack) = context(
-        "Is not a valid `RepeatedGridTrack`, try `(float/int) + px/%/fr/flex/vh/vw/vmin/vmax` or `auto`, `min`, `max`",
+        "Is not a valid `RepeatedGridTrack`, try `(float/int) + px/%/fr/flex/em/rem/vh/vw/vmin/vmax` or `auto`, `min`, `max`",
         alt((
             map(tag("auto"), |_| {
                 RepeatedGridTrack::auto::<RepeatedGridTrack>(repeat)
             }),
             map(tag("min"), |_| RepeatedGridTrack::min_content(repeat)),
             map(tag("max"), |_| RepeatedGridTrack::max_content(repeat)),
+            map(tuple((parse_unit_float, tag("em"))), |(val, _)| {
+                RepeatedGridTrack::em(repeat, val)
+            }),
+            map(tuple((parse_unit_float, tag("rem"))), |(val, _)| {
+                RepeatedGridTrack::rem(repeat, val)
+            }),
             map(tuple((float, tag("px"))), |(val, _)| {
                 RepeatedGridTrack::px(repeat, val)
             }),
@@ -1458,11 +1652,13 @@ where
     E: ParseError<&'a [u8]> + ContextError<&'a [u8]>,
 {
     context(
-        "cannot be parsed as `Val`, expected number + `px`/`%`/`vw`/`vh`/`vmin`/`vmax`",
+        "cannot be parsed as `Val`, expected number + `px`/`%`/`vw`/`vh`/`vmin`/`vmax`/`em`/`rem`",
         delimited(
             multispace0,
             alt((
                 map(tag("auto"), |_| Val::Auto),
+                map(tuple((parse_unit_float, tag("em"))), |(val, _)| Val::Em(val)),
+                map(tuple((parse_unit_float, tag("rem"))), |(val, _)| Val::Rem(val)),
                 map(tag("0"), |_| Val::Px(0.)),
                 map(tuple((float, tag("px"))), |(val, _)| Val::Px(val)),
                 map(tuple((float, tag("%"))), |(val, _)| Val::Percent(val)),
@@ -1481,6 +1677,111 @@ where
     E: ParseError<&'a [u8]> + ContextError<&'a [u8]>,
 {
     terminated(parse_float, tag("px"))(input)
+}
+
+/// 20
+/// 24px
+/// 1.5rem
+/// 3vw
+fn parse_font_size<'a, E>(input: &'a [u8]) -> IResult<&'a [u8], FontSize, E>
+where
+    E: ParseError<&'a [u8]> + ContextError<&'a [u8]>,
+{
+    context(
+        "cannot be parsed as `FontSize`, expected bare number (px) or number + `px`/`rem`/`vw`/`vh`/`vmin`/`vmax`; em is not supported: bevy has no node-relative font size",
+        terminated(
+            alt((
+                map(tuple((float, tag("px"))), |(val, _)| FontSize::Px(val)),
+                map(tuple((float, tag("rem"))), |(val, _)| FontSize::Rem(val)),
+                map(tuple((float, tag("vw"))), |(val, _)| FontSize::Vw(val)),
+                map(tuple((float, tag("vh"))), |(val, _)| FontSize::Vh(val)),
+                map(tuple((float, tag("vmin"))), |(val, _)| FontSize::VMin(val)),
+                map(tuple((float, tag("vmax"))), |(val, _)| FontSize::VMax(val)),
+                map(parse_float, FontSize::Px),
+            )),
+            pair(multispace0, eof),
+        ),
+    )(input)
+}
+
+/// 1.4
+/// 24px
+fn parse_line_height<'a, E>(input: &'a [u8]) -> IResult<&'a [u8], LineHeight, E>
+where
+    E: ParseError<&'a [u8]> + ContextError<&'a [u8]>,
+{
+    context(
+        "cannot be parsed as `LineHeight`, expected bare number (font relative) or number + `px`",
+        terminated(
+            alt((
+                map(terminated(parse_float, tag("px")), LineHeight::Px),
+                map(parse_float, LineHeight::RelativeToFont),
+            )),
+            pair(multispace0, eof),
+        ),
+    )(input)
+}
+
+/// 2px
+/// 0.05rem
+fn parse_letter_spacing<'a, E>(input: &'a [u8]) -> IResult<&'a [u8], LetterSpacing, E>
+where
+    E: ParseError<&'a [u8]> + ContextError<&'a [u8]>,
+{
+    context(
+        "cannot be parsed as `LetterSpacing`, expected number + `px`/`rem`",
+        terminated(
+            alt((
+                map(terminated(parse_float, tag("px")), LetterSpacing::Px),
+                map(terminated(parse_float, tag("rem")), LetterSpacing::Rem),
+            )),
+            pair(multispace0, eof),
+        ),
+    )(input)
+}
+
+/// 700
+fn parse_font_weight<'a, E>(input: &'a [u8]) -> IResult<&'a [u8], FontWeight, E>
+where
+    E: ParseError<&'a [u8]> + ContextError<&'a [u8]>,
+{
+    let original = input;
+    let (input, num) = context(
+        "cannot be parsed as `FontWeight`, expected integer in 1..=1000",
+        terminated(parse_number, pair(multispace0, eof)),
+    )(input)?;
+
+    match u16::try_from(num) {
+        Ok(weight) if (1..=1000).contains(&weight) => Ok((input, FontWeight(weight))),
+        _ => {
+            let err = E::from_error_kind(original, ErrorKind::Verify);
+            Err(nom::Err::Error(E::add_context(
+                original,
+                "Not a valid `FontWeight`, must be in 1..=1000",
+                err,
+            )))
+        }
+    }
+}
+
+/// normal
+/// italic
+/// oblique
+fn parse_font_style<'a, E>(input: &'a [u8]) -> IResult<&'a [u8], FontStyle, E>
+where
+    E: ParseError<&'a [u8]> + ContextError<&'a [u8]>,
+{
+    context(
+        "Is not a valid `FontStyle`, try `normal`, `italic`, `oblique`",
+        terminated(
+            alt((
+                map(tag("normal"), |_| FontStyle::Normal),
+                map(tag("italic"), |_| FontStyle::Italic),
+                map(tag("oblique"), |_| FontStyle::Oblique(None)),
+            )),
+            pair(multispace0, eof),
+        ),
+    )(input)
 }
 
 // 100ms
@@ -1754,7 +2055,7 @@ where
 mod tests {
     use super::*;
     use crate::error::VerboseHtmlError;
-    use nom::error::VerboseError;
+    use nom::error::{VerboseError, VerboseErrorKind};
     use test_case::test_case;
 
     #[test_case("#FFFFFFFF", Color::WHITE)]
@@ -1775,6 +2076,8 @@ mod tests {
     #[test_case("20px", Val::Px(20.))]
     #[test_case("20vmin", Val::VMin(20.))]
     #[test_case("20vmax", Val::VMax(20.))]
+    #[test_case("2em", Val::Em(2.))]
+    #[test_case("1.5rem", Val::Rem(1.5))]
     fn test_value(input: &str, expected: Val) {
         let result = parse_val::<nom::error::Error<_>>(input.as_bytes());
         assert_eq!(Ok(("".as_bytes(), expected)), result);
@@ -1800,6 +2103,8 @@ mod tests {
     #[test_case("min max auto", vec![GridTrack::min_content(), GridTrack::max_content(), GridTrack::auto()])]
     #[test_case("50% auto   8fr   ", vec![GridTrack::percent(50.), GridTrack::auto(), GridTrack::fr(8.)])]
     #[test_case("50px       ", vec![GridTrack::px(50.)])]
+    #[test_case("5em 2rem", vec![GridTrack::em(5.), GridTrack::rem(2.)])]
+    #[test_case("minmax(1rem, 10em)", vec![GridTrack::minmax(MinTrackSizingFunction::Rem(1.), MaxTrackSizingFunction::Em(10.))])]
     fn test_tracks(input: &str, expected: Vec<GridTrack>) {
         let result = many0(parse_grid_track::<nom::error::Error<_>>)(input.as_bytes());
         assert_eq!(Ok(("".as_bytes(), expected)), result);
@@ -1808,6 +2113,7 @@ mod tests {
     #[test_case("(4, 8flex)(1, 50px)", vec![RepeatedGridTrack::flex(4, 8.), RepeatedGridTrack::px(1,50.)])]
     #[test_case("(1, auto)(5, 50fr)", vec![RepeatedGridTrack::auto(1), RepeatedGridTrack::fr(5,50.)])]
     #[test_case("(1, auto)", vec![RepeatedGridTrack::auto(1)])]
+    #[test_case("(2, 5em)(1, 4rem)", vec![RepeatedGridTrack::em(2, 5.), RepeatedGridTrack::rem(1, 4.)])]
     fn test_repeat_tracks(input: &str, expected: Vec<RepeatedGridTrack>) {
         match many0(parse_grid_track_repeated::<VerboseHtmlError>)(input.as_bytes()) {
             Ok((rem, grid)) => {
@@ -1820,15 +2126,155 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_repeat_tracks_minmax() {
+        let expected = vec![RepeatedGridTrack::from(GridTrack::minmax::<GridTrack>(
+            MinTrackSizingFunction::Rem(1.),
+            MaxTrackSizingFunction::Em(10.),
+        ))];
+        match many0(parse_grid_track_repeated::<nom::error::Error<_>>)(
+            b"minmax(1rem, 10em) auto",
+        ) {
+            Ok((_rem, grid)) => assert_eq!(expected, grid),
+            Err(_err) => {
+                assert!(false, "");
+            }
+        }
+    }
+
     #[test_case("20px", UiRect::all(Val::Px(20.)))]
     #[test_case("20px 10px", UiRect::axes(Val::Px(20.), Val::Px(10.)))]
     #[test_case(
         "5px 10px 5% 6px",
         UiRect{ top:Val::Px(5.), right: Val::Px(10.), bottom: Val::Percent(5.), left: Val::Px(6.)}
     )]
+    #[test_case("2em", UiRect::all(Val::Em(2.)))]
+    #[test_case("0.5em 1rem", UiRect::axes(Val::Em(0.5), Val::Rem(1.)))]
+    #[test_case(
+        "1em 2rem 3em 4rem",
+        UiRect{ top: Val::Em(1.), right: Val::Rem(2.), bottom: Val::Em(3.), left: Val::Rem(4.)}
+    )]
     fn test_rect(input: &str, expected: UiRect) {
         let result = parse_ui_rect::<nom::error::Error<_>>(input.as_bytes());
         assert_eq!(Ok(("".as_bytes(), expected)), result);
+    }
+
+    #[test_case("10px", BorderRadius {
+        top_left: CornerRadius::circular(Val::Px(10.)),
+        top_right: CornerRadius::circular(Val::Px(10.)),
+        bottom_right: CornerRadius::circular(Val::Px(10.)),
+        bottom_left: CornerRadius::circular(Val::Px(10.)),
+    })]
+    #[test_case("10px 5px", BorderRadius {
+        top_left: CornerRadius::circular(Val::Px(5.)),
+        top_right: CornerRadius::circular(Val::Px(10.)),
+        bottom_right: CornerRadius::circular(Val::Px(5.)),
+        bottom_left: CornerRadius::circular(Val::Px(10.)),
+    })]
+    #[test_case("10px / 4px", BorderRadius {
+        top_left: CornerRadius::new(Val::Px(10.), Val::Px(4.)),
+        top_right: CornerRadius::new(Val::Px(10.), Val::Px(4.)),
+        bottom_right: CornerRadius::new(Val::Px(10.), Val::Px(4.)),
+        bottom_left: CornerRadius::new(Val::Px(10.), Val::Px(4.)),
+    })]
+    #[test_case("10px 5px 8px 6px / 4px 2px 3px 1px", BorderRadius {
+        top_left: CornerRadius::new(Val::Px(10.), Val::Px(4.)),
+        top_right: CornerRadius::new(Val::Px(5.), Val::Px(2.)),
+        bottom_right: CornerRadius::new(Val::Px(8.), Val::Px(3.)),
+        bottom_left: CornerRadius::new(Val::Px(6.), Val::Px(1.)),
+    })]
+    fn test_border_radius(input: &str, expected: BorderRadius) {
+        let result = parse_border_radius::<nom::error::Error<_>>(input.as_bytes());
+        assert_eq!(Ok(("".as_bytes(), expected)), result);
+    }
+
+    #[test]
+    fn test_border_radius_dangling_slash_is_error() {
+        assert!(parse_border_radius::<nom::error::Error<_>>(b"10px /").is_err());
+    }
+
+    #[test_case("20", FontSize::Px(20.))]
+    #[test_case("24px", FontSize::Px(24.))]
+    #[test_case("1.5rem", FontSize::Rem(1.5))]
+    #[test_case("3vw", FontSize::Vw(3.))]
+    #[test_case("3vh", FontSize::Vh(3.))]
+    #[test_case("3vmin", FontSize::VMin(3.))]
+    #[test_case("25 ", FontSize::Px(25.))]
+    #[test_case("3vmax", FontSize::VMax(3.))]
+    fn test_font_size(input: &str, expected: FontSize) {
+        let result = parse_font_size::<nom::error::Error<_>>(input.as_bytes());
+        assert_eq!(Ok(("".as_bytes(), expected)), result);
+    }
+
+    #[test]
+    fn test_font_size_em_is_error() {
+        assert!(parse_font_size::<nom::error::Error<_>>(b"2em").is_err());
+    }
+
+    #[test_case("1.4", LineHeight::RelativeToFont(1.4))]
+    #[test_case("24px", LineHeight::Px(24.))]
+    fn test_line_height(input: &str, expected: LineHeight) {
+        let result = parse_line_height::<nom::error::Error<_>>(input.as_bytes());
+        assert_eq!(Ok(("".as_bytes(), expected)), result);
+    }
+
+    #[test]
+    fn test_line_height_invalid_is_error() {
+        assert!(parse_line_height::<nom::error::Error<_>>(b"1.4em").is_err());
+    }
+
+    #[test_case("2px", LetterSpacing::Px(2.))]
+    #[test_case("0.05rem", LetterSpacing::Rem(0.05))]
+    fn test_letter_spacing(input: &str, expected: LetterSpacing) {
+        let result = parse_letter_spacing::<nom::error::Error<_>>(input.as_bytes());
+        assert_eq!(Ok(("".as_bytes(), expected)), result);
+    }
+
+    #[test]
+    fn test_letter_spacing_requires_unit() {
+        assert!(parse_letter_spacing::<nom::error::Error<_>>(b"2").is_err());
+    }
+
+    #[test_case("700", FontWeight(700))]
+    #[test_case("1", FontWeight(1))]
+    #[test_case("1000", FontWeight(1000))]
+    fn test_font_weight(input: &str, expected: FontWeight) {
+        let result = parse_font_weight::<nom::error::Error<_>>(input.as_bytes());
+        assert_eq!(Ok(("".as_bytes(), expected)), result);
+    }
+
+    #[test]
+    fn test_font_weight_out_of_range_is_error() {
+        assert!(parse_font_weight::<nom::error::Error<_>>(b"1001").is_err());
+    }
+
+    #[test]
+    fn test_font_weight_out_of_range_error_has_context() {
+        match parse_font_weight::<VerboseError<_>>(b"1001") {
+            Err(nom::Err::Error(err)) => {
+                assert!(err
+                    .errors
+                    .iter()
+                    .any(|(_, kind)| matches!(kind, VerboseErrorKind::Context(_))));
+                assert!(err.errors.iter().any(|(input, _)| !input.is_empty()));
+            }
+            _ => {
+                assert!(false, "");
+            }
+        }
+    }
+
+    #[test_case("normal", FontStyle::Normal)]
+    #[test_case("italic", FontStyle::Italic)]
+    #[test_case("oblique", FontStyle::Oblique(None))]
+    fn test_font_style(input: &str, expected: FontStyle) {
+        let result = parse_font_style::<nom::error::Error<_>>(input.as_bytes());
+        assert_eq!(Ok(("".as_bytes(), expected)), result);
+    }
+
+    #[test]
+    fn test_font_style_invalid_is_error() {
+        assert!(parse_font_style::<nom::error::Error<_>>(b"slanted").is_err());
     }
 
     #[test_case(

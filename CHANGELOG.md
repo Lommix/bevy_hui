@@ -1,6 +1,10 @@
 # 0.8
 
 - updated to bevy 0.20
+- `em` and `rem` length units accepted by every Val-based length attribute, including grid tracks and `minmax()`
+- `font_size` accepts `px`/`rem`/`vw`/`vh`/`vmin`/`vmax` units, bare numbers still mean pixels, `em` is a parse error
+- `border_radius` supports the CSS slash syntax for elliptical corners (`10px 5px / 4px 2px`)
+- new text attributes: `line_height`, `letter_spacing`, `font_weight`, `font_style`
 - interaction styles and events now use the picking `Hovered` and `Pressed` components
 - button interaction styles and events now require the picking feature
 - bevy_hui_widgets updated to 0.7.0

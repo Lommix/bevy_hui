@@ -16,8 +16,8 @@
 
 | Valid in Html                                                     | Bevy        |
 | ----------------------------------------------------------------- | ----------- |
-| `float + px/%/vw/vh/vmin/vmax`                                    | `Val`       |
-| `auto`,`min`,`max` `float + px/fr/flex/vh/vw/%`                   | `GridTrack` |
+| `float + px/%/vw/vh/vmin/vmax/em/rem`                              | `Val`       |
+| `auto`,`min`,`max` `float + px/fr/flex/em/rem/vh/vw/vmin/vmax/%` `minmax(min, max)` (valid in `grid_auto_*`/`grid_template_*` track lists, not inside `(n, ...)`) | `GridTrack` |
 | all:`Val` axis:`Val Val` full:`Val Val Val Val`                   | `UiRect`    |
 | `#FFF` `#FFFA` `#FFFFFF` `#FFFFFFAA` `rgb(1,1,1)` `rgba(1,1,1,1)` | `Color`     |
 
@@ -61,7 +61,11 @@
 | text_shadow           | `(2,1) #000` ref `Vec2 Color`                                                                            |
 | font                  | asset path                                                                                               |
 | font_color            | ref `Color`                                                                                              |
-| font_size             | float                                                                                                    |
+| font_size             | bare float (px) or `float + px/rem/vw/vh/vmin/vmax`                                                       |
+| line_height           | bare float (font relative) or `float + px`                                                                |
+| letter_spacing        | `float + px/rem`                                                                                          |
+| font_weight           | int `1`..`1000`                                                                                           |
+| font_style            | `normal`, `italic`, `oblique`                                                                             |
 | delay                 | `100ms` `5s`                                                                                             |
 | ease                  | `bevy_math::EaseFunction` snake case `sine_in` `quintic_in_out`...                                       |
 | max_height            | ref `Val`                                                                                                |
@@ -77,7 +81,7 @@
 | padding               | ref `UiRect` top->right->bottom->left                                                                    |
 | margin                | ref `UiRect` top->right->bottom->left                                                                    |
 | border                | ref `UiRect` top->right->bottom->left                                                                    |
-| border_radius         | ref `UiRect` top->right->bottom->left                                                                    |
+| border_radius         | ref `UiRect` top->right->bottom->left, elliptical: `UiRect / UiRect` horizontal / vertical               |
 | outline               | `Val Val Color`                                                                                          |
 | background            | ref `Color`                                                                                              |
 | border_color          | ref `Color`                                                                                              |

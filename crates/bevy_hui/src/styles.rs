@@ -7,6 +7,7 @@ use crate::build::InteractionObverser;
 use bevy::{
     ecs::{query::QueryEntityError, system::SystemParam},
     prelude::*,
+    text::{LetterSpacing, LineHeight},
     ui::widget::NodeImageMode,
 };
 #[cfg(feature = "picking")]
@@ -140,6 +141,8 @@ pub struct UiStyleQuery<'w, 's> {
     pub text_colors: Query<'w, 's, &'static mut TextColor>,
     pub text_layouts: Query<'w, 's, &'static mut TextLayout>,
     pub text_shadows: Query<'w, 's, &'static mut TextShadow>,
+    pub line_heights: Query<'w, 's, &'static mut LineHeight>,
+    pub letter_spacings: Query<'w, 's, &'static mut LetterSpacing>,
     pub background: Query<'w, 's, &'static mut BackgroundColor>,
     pub border_color: Query<'w, 's, &'static mut BorderColor>,
     pub shadow: Query<'w, 's, &'static mut BoxShadow>,
@@ -162,7 +165,13 @@ impl<'w, 's> UiStyleQuery<'w, 's> {
         });
 
         _ = self.text_fonts.get_mut(entity).map(|mut font| {
-            font.font_size = FontSize::Px(computed.font_size);
+            font.font_size = computed.font_size;
+            if let Some(weight) = computed.font_weight {
+                font.weight = weight;
+            }
+            if let Some(style) = computed.font_style {
+                font.style = style;
+            }
             if let Some(h) = computed.font.as_ref() {
                 let (handle, update_style) = match h {
                     FontReference::Handle(handle) => (handle.clone(), false),
@@ -181,15 +190,23 @@ impl<'w, 's> UiStyleQuery<'w, 's> {
             **color = computed.font_color;
         });
 
+        if let Some(line_height) = computed.line_height {
+            _ = self.line_heights.get_mut(entity).map(|mut lh| *lh = line_height);
+        }
+
+        if let Some(letter_spacing) = computed.letter_spacing {
+            _ = self
+                .letter_spacings
+                .get_mut(entity)
+                .map(|mut ls| *ls = letter_spacing);
+        }
+
         _ = self.background.get_mut(entity).map(|mut background| {
             background.0 = computed.background;
         });
 
         _ = self.node.get_mut(entity).map(|mut node| {
-            node.border_radius.top_left = computed.border_radius.top.into();
-            node.border_radius.top_right = computed.border_radius.right.into();
-            node.border_radius.bottom_right = computed.border_radius.bottom.into();
-            node.border_radius.bottom_left = computed.border_radius.left.into();
+            node.border_radius = computed.border_radius;
         });
 
         if let Some(computed_shadow) = computed.text_shadow.as_ref() {
@@ -285,16 +302,40 @@ impl<'w, 's> UiStyleQuery<'w, 's> {
                     bcolor.bottom = color;
                 });
             }
-            StyleAttr::BorderRadius(ui_rect) => {
+            StyleAttr::BorderRadius(radius) => {
                 _ = self.node.get_mut(entity).map(|mut node| {
-                    node.border_radius.top_left =
-                        lerp_val(&computed.border_radius.top, &ui_rect.top, ratio).into();
-                    node.border_radius.top_right =
-                        lerp_val(&computed.border_radius.right, &ui_rect.right, ratio).into();
-                    node.border_radius.bottom_right =
-                        lerp_val(&computed.border_radius.bottom, &ui_rect.bottom, ratio).into();
-                    node.border_radius.bottom_left =
-                        lerp_val(&computed.border_radius.left, &ui_rect.left, ratio).into();
+                    node.border_radius.top_left = CornerRadius::new(
+                        lerp_val(&computed.border_radius.top_left.x, &radius.top_left.x, ratio),
+                        lerp_val(&computed.border_radius.top_left.y, &radius.top_left.y, ratio),
+                    );
+                    node.border_radius.top_right = CornerRadius::new(
+                        lerp_val(&computed.border_radius.top_right.x, &radius.top_right.x, ratio),
+                        lerp_val(&computed.border_radius.top_right.y, &radius.top_right.y, ratio),
+                    );
+                    node.border_radius.bottom_right = CornerRadius::new(
+                        lerp_val(
+                            &computed.border_radius.bottom_right.x,
+                            &radius.bottom_right.x,
+                            ratio,
+                        ),
+                        lerp_val(
+                            &computed.border_radius.bottom_right.y,
+                            &radius.bottom_right.y,
+                            ratio,
+                        ),
+                    );
+                    node.border_radius.bottom_left = CornerRadius::new(
+                        lerp_val(
+                            &computed.border_radius.bottom_left.x,
+                            &radius.bottom_left.x,
+                            ratio,
+                        ),
+                        lerp_val(
+                            &computed.border_radius.bottom_left.y,
+                            &radius.bottom_left.y,
+                            ratio,
+                        ),
+                    );
                 });
             }
             StyleAttr::FlexDirection(flex_direction) => style.flex_direction = *flex_direction,
@@ -336,8 +377,32 @@ impl<'w, 's> UiStyleQuery<'w, 's> {
             }
             StyleAttr::FontSize(s) => {
                 _ = self.text_fonts.get_mut(entity).map(|mut txt| {
-                    txt.font_size = FontSize::Px(computed.font_size.lerp(*s, ratio));
+                    txt.font_size = lerp_font_size(&computed.font_size, s, ratio);
                 });
+            }
+            StyleAttr::LineHeight(line_height) => {
+                _ = self
+                    .line_heights
+                    .get_mut(entity)
+                    .map(|mut lh| *lh = *line_height);
+            }
+            StyleAttr::LetterSpacing(letter_spacing) => {
+                _ = self
+                    .letter_spacings
+                    .get_mut(entity)
+                    .map(|mut ls| *ls = *letter_spacing);
+            }
+            StyleAttr::FontWeight(weight) => {
+                _ = self.text_fonts.get_mut(entity).map(|mut txt| {
+                    let start = computed.font_weight.unwrap_or_default();
+                    txt.weight = FontWeight((start.0 as f32).lerp(weight.0 as f32, ratio) as u16);
+                });
+            }
+            StyleAttr::FontStyle(font_style) => {
+                _ = self
+                    .text_fonts
+                    .get_mut(entity)
+                    .map(|mut txt| txt.style = *font_style);
             }
             StyleAttr::Font(h) => {
                 _ = self.text_fonts.get_mut(entity).map(|mut txt| {
@@ -478,7 +543,7 @@ impl HoverTimer {
 pub struct ComputedStyle {
     pub node: Node,
     pub border_color: Color,
-    pub border_radius: UiRect,
+    pub border_radius: BorderRadius,
     pub image_color: Color,
     pub image_mode: Option<NodeImageMode>,
     pub image_region: Option<Rect>,
@@ -488,8 +553,12 @@ pub struct ComputedStyle {
     pub outline: Option<Outline>,
     pub font: Option<FontReference>,
     pub text_layout: Option<TextLayout>,
-    pub font_size: f32,
+    pub font_size: FontSize,
     pub font_color: Color,
+    pub line_height: Option<LineHeight>,
+    pub letter_spacing: Option<LetterSpacing>,
+    pub font_weight: Option<FontWeight>,
+    pub font_style: Option<FontStyle>,
     pub atlas: Option<Atlas>,
     pub delay: f32,
     pub duration: f32,
@@ -510,7 +579,7 @@ impl Default for ComputedStyle {
             node: Node::default(),
             image_color: Color::WHITE,
             border_color: Color::NONE,
-            border_radius: UiRect::default(),
+            border_radius: BorderRadius::default(),
             background: Color::NONE,
             image_mode: None,
             shadow: None,
@@ -518,9 +587,13 @@ impl Default for ComputedStyle {
             outline: None,
             text_shadow: None,
             font: Default::default(),
-            font_size: 12.,
+            font_size: FontSize::Px(12.),
             font_color: Color::WHITE,
             text_layout: None,
+            line_height: None,
+            letter_spacing: None,
+            font_weight: None,
+            font_style: None,
             atlas: None,
             delay: 0.,
             duration: 0.,
@@ -630,7 +703,7 @@ impl HtmlStyle {
             StyleAttr::Padding(ui_rect) => self.computed.node.padding = ui_rect,
             StyleAttr::Border(ui_rect) => self.computed.node.border = ui_rect,
             StyleAttr::BorderColor(color) => self.computed.border_color = color,
-            StyleAttr::BorderRadius(ui_rect) => self.computed.border_radius = ui_rect,
+            StyleAttr::BorderRadius(radius) => self.computed.border_radius = radius,
             StyleAttr::FlexDirection(flex_direction) => {
                 self.computed.node.flex_direction = flex_direction
             }
@@ -654,6 +727,12 @@ impl HtmlStyle {
             StyleAttr::FontSize(f) => self.computed.font_size = f,
             StyleAttr::FontColor(color) => self.computed.font_color = color,
             StyleAttr::TextLayout(text_layout) => self.computed.text_layout = Some(text_layout),
+            StyleAttr::LineHeight(line_height) => self.computed.line_height = Some(line_height),
+            StyleAttr::LetterSpacing(letter_spacing) => {
+                self.computed.letter_spacing = Some(letter_spacing)
+            }
+            StyleAttr::FontWeight(weight) => self.computed.font_weight = Some(weight),
+            StyleAttr::FontStyle(font_style) => self.computed.font_style = Some(font_style),
             StyleAttr::Background(color) => self.computed.background = color,
             StyleAttr::Atlas(f) => self.computed.atlas = f,
             StyleAttr::Delay(f) => self.computed.delay = f,
@@ -765,6 +844,22 @@ fn lerp_val(start: &Val, end: &Val, ratio: f32) -> Val {
             Val::Percent((end - start).mul_add(ratio, *start))
         }
         (Val::Px(start), Val::Px(end)) => Val::Px((end - start).mul_add(ratio, *start)),
+        (Val::Em(start), Val::Em(end)) => Val::Em((end - start).mul_add(ratio, *start)),
+        (Val::Rem(start), Val::Rem(end)) => Val::Rem((end - start).mul_add(ratio, *start)),
+        _ if ratio >= 1.0 => *end,
+        _ => *start,
+    }
+}
+
+fn lerp_font_size(start: &FontSize, end: &FontSize, ratio: f32) -> FontSize {
+    match (start, end) {
+        (FontSize::Px(start), FontSize::Px(end)) => FontSize::Px(start.lerp(*end, ratio)),
+        (FontSize::Rem(start), FontSize::Rem(end)) => FontSize::Rem(start.lerp(*end, ratio)),
+        (FontSize::Vw(start), FontSize::Vw(end)) => FontSize::Vw(start.lerp(*end, ratio)),
+        (FontSize::Vh(start), FontSize::Vh(end)) => FontSize::Vh(start.lerp(*end, ratio)),
+        (FontSize::VMin(start), FontSize::VMin(end)) => FontSize::VMin(start.lerp(*end, ratio)),
+        (FontSize::VMax(start), FontSize::VMax(end)) => FontSize::VMax(start.lerp(*end, ratio)),
+        _ if ratio >= 1.0 => *end,
         _ => *start,
     }
 }
