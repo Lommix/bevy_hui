@@ -1,7 +1,7 @@
 [package]
 name = "bevy_hui"
 authors = ["Lorenz Mielke"]
-version = "0.7.0"
+version = "0.8.0"
 edition = "2021"
 description = "pseudo Html templating ui crate for the bevy-engine."
 keywords = ["bevy", "ui", "xml", "html", "dsl"]
@@ -17,21 +17,22 @@ opt-level = 1
 opt-level = 3
 
 [dependencies]
-bevy = { version = "0.19", default-features = false, features = [
+bevy = { version = "0.20", default-features = false, features = [
   "bevy_render",
   "bevy_ui",
   "bevy_asset",
   "bevy_state",
   "bevy_text",
   "bevy_log",
+  "bevy_curve",
 ] }
-bevy_picking = { version = "0.19", optional = true }
+bevy_picking = { version = "0.20", optional = true }
 thiserror = "1.0.63"
 nom = "7.1.3"
 owo-colors = "4.1.0"
 
 [features]
-picking = ["dep:bevy_picking"]
+picking = ["dep:bevy_picking", "bevy/ui_picking", "bevy/bevy_ui_widgets"]
 default = []
 
 [dev-dependencies]

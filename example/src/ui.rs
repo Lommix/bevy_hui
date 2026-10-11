@@ -1,4 +1,6 @@
-use bevy::{image::ImageSamplerDescriptor, input::mouse::MouseWheel, prelude::*};
+use bevy::{
+    image::ImageSamplerDescriptor, input::mouse::MouseWheel, prelude::*, ui::Pressed,
+};
 use bevy_aseprite_ultra::prelude::*;
 use bevy_hui::prelude::*;
 
@@ -102,15 +104,12 @@ fn setup(
 pub struct Collapse(pub bool);
 
 fn update_collapse(
-    mut interactions: Query<(&Interaction, &UiTarget, &mut Collapse), Changed<Interaction>>,
+    mut interactions: Query<(&UiTarget, &mut Collapse), Added<Pressed>>,
     mut style: Query<&mut HtmlStyle>,
 ) {
     interactions
         .iter_mut()
-        .for_each(|(interaction, target, mut collapse)| {
-            let Interaction::Pressed = interaction else {
-                return;
-            };
+        .for_each(|(target, mut collapse)| {
 
             let display = match **collapse {
                 true => {

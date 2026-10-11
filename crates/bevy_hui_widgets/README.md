@@ -5,6 +5,9 @@ with `bevy_hui`.
 
 It is highly suggest to checkout the widget example in the example-crate.
 
+Widget interactions require bevy_hui's `picking` feature, which is enabled
+automatically by this crate.
+
 ## Slider
 
 A slider is a node with an absolute button as child.

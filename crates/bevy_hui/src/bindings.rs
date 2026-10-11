@@ -4,6 +4,10 @@ use bevy::{
     platform::collections::HashMap,
     prelude::*,
 };
+#[cfg(feature = "picking")]
+use bevy::ui::Pressed;
+#[cfg(feature = "picking")]
+use bevy_picking::hover::Hovered;
 
 pub struct BindingPlugin;
 impl Plugin for BindingPlugin {
@@ -11,7 +15,14 @@ impl Plugin for BindingPlugin {
         app.init_resource::<FunctionBindings>()
             .init_resource::<ComponentBindings>()
             // .add_event::<UiChangedEvent>()
-            .add_systems(Update, (observe_interactions, observe_on_spawn))
+            .add_systems(
+                Update,
+                (
+                    #[cfg(feature = "picking")]
+                    observe_interactions,
+                    observe_on_spawn,
+                ),
+            )
             .add_observer(observe_node_changed);
     }
 }
@@ -151,37 +162,35 @@ fn observe_on_spawn(
 }
 
 #[rustfmt::skip]
+#[cfg(feature = "picking")]
 fn observe_interactions(
     mut cmd: Commands,
-    interactions: Query<(Entity, &Interaction), Changed<Interaction>>,
+    pressed : Query<(Entity, &crate::prelude::OnUiPress), Added<Pressed>>,
+    enters : Query<(Entity, &Hovered, &crate::prelude::OnUiEnter), Changed<Hovered>>,
+    exits : Query<(Entity, &Hovered, &crate::prelude::OnUiExit), Changed<Hovered>>,
     function_bindings: Res<FunctionBindings>,
-    on_pressed : Query<&crate::prelude::OnUiPress>,
-    on_enter : Query<&crate::prelude::OnUiEnter>,
-    on_exit : Query<&crate::prelude::OnUiExit>,
 ){
-    interactions.iter().for_each(|(entity, interaction)|{
-        match interaction {
-            Interaction::Pressed => {
-                if let Ok(crate::prelude::OnUiPress(funcs)) = on_pressed.get(entity){
-                    for fn_str in funcs.iter(){
-                        function_bindings.maybe_run(fn_str, entity, &mut cmd);
-                    }
-                }
-            }
-            Interaction::Hovered => {
-                if let Ok(crate::prelude::OnUiEnter(funcs)) = on_enter.get(entity){
-                    for fn_str in funcs.iter(){
-                        function_bindings.maybe_run(fn_str, entity, &mut cmd);
-                    }
-                }
-            },
-            Interaction::None => {
-                if let Ok(crate::prelude::OnUiExit(funcs)) = on_exit.get(entity){
-                    for fn_str in funcs.iter(){
-                        function_bindings.maybe_run(fn_str, entity, &mut cmd);
-                    }
-                }
-            },
+    pressed.iter().for_each(|(entity, on_pressed)|{
+        for fn_str in on_pressed.iter(){
+            function_bindings.maybe_run(fn_str, entity, &mut cmd);
+        }
+    });
+
+    enters.iter().for_each(|(entity, hovered, on_enter)|{
+        if !hovered.get() {
+            return;
+        }
+        for fn_str in on_enter.iter(){
+            function_bindings.maybe_run(fn_str, entity, &mut cmd);
+        }
+    });
+
+    exits.iter().for_each(|(entity, hovered, on_exit)|{
+        if hovered.get() {
+            return;
+        }
+        for fn_str in on_exit.iter(){
+            function_bindings.maybe_run(fn_str, entity, &mut cmd);
         }
     });
 }

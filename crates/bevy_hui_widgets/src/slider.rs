@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, ui::Pressed, ui_widgets::Button};
 use bevy_hui::prelude::*;
 
 /// # Slider Component Plugin
@@ -145,13 +145,13 @@ fn init_slider(
 fn update_drag(
     mut slider_events: MessageWriter<SliderChangedEvent>,
     mut events: MessageReader<bevy::input::mouse::MouseMotion>,
-    mut nobs: Query<(Entity, &SliderNob, &mut HtmlStyle, &Interaction)>,
+    mut nobs: Query<(Entity, &SliderNob, &mut HtmlStyle, Has<Pressed>)>,
     sliders: Query<&Slider>,
     computed_nodes: Query<&ComputedNode>,
 ) {
     for event in events.read() {
         nobs.iter_mut()
-            .filter(|(_, _, _, interaction)| matches!(interaction, Interaction::Pressed))
+            .filter(|(_, _, _, pressed)| *pressed)
             .for_each(|(nob_entity, nob, mut style, _)| {
                 let Ok(slider_computed) = computed_nodes.get(nob.slider) else {
                     return;

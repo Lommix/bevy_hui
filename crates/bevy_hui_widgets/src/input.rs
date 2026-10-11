@@ -4,6 +4,7 @@ use bevy::{
         mouse::MouseButtonInput,
     },
     prelude::*,
+    ui::Pressed,
 };
 use bevy_hui::prelude::*;
 
@@ -126,10 +127,10 @@ fn setup(mut html_funcs: HtmlFunctions) {
 
 fn focus(
     mut cmd: Commands,
-    text_inputs: Query<(Entity, &Interaction), (With<TextInput>, Without<UiActive>)>,
+    text_inputs: Query<(Entity, Has<Pressed>), (With<TextInput>, Without<UiActive>)>,
 ) {
-    for (entity, interaction) in text_inputs.iter() {
-        if matches!(interaction, Interaction::Pressed) {
+    for (entity, pressed) in text_inputs.iter() {
+        if pressed {
             cmd.entity(entity).insert(UiActive);
         }
     }

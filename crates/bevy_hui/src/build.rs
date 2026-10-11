@@ -7,6 +7,10 @@ use crate::{
     util::SlotId,
 };
 use bevy::{platform::collections::HashMap, prelude::*};
+#[cfg(feature = "picking")]
+use bevy::ui_widgets::Button;
+#[cfg(feature = "picking")]
+use bevy_picking::hover::Hovered;
 
 use std::time::Duration;
 
@@ -590,7 +594,12 @@ impl<'w, 's> TemplateBuilder<'w, 's> {
             // --------------------------------
             // spawn button
             NodeType::Button => {
-                self.cmd.entity(entity).insert((Button, styles));
+                #[cfg(feature = "picking")]
+                self.cmd
+                    .entity(entity)
+                    .insert((Node::default(), Button, Hovered::default(), styles));
+                #[cfg(not(feature = "picking"))]
+                self.cmd.entity(entity).insert((Node::default(), styles));
             }
             NodeType::Custom(custom) => {
                 // mark children

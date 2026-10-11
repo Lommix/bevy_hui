@@ -101,9 +101,11 @@ transition animation in combination with `ease` and `delay`
 
 | Html style prefix | valid values                       |
 | ----------------- | ---------------------------------- |
-| `hover:..`        | active on `Interaction::Hover`     |
-| `pressed:..`      | active on `Interaction::Press`     |
+| `hover:..`*       | active on `Hovered`               |
+| `pressed:..`*     | active on `Pressed`               |
 | `active:..`       | active if has component `UiActive` |
+
+Enabled by `picking` feature
 
 ## Events
 
@@ -114,10 +116,12 @@ Each event accepts a list of comma separated function bindings
 | Html        | Explanation                                         |
 | ----------- | --------------------------------------------------- |
 | `on_spawn`  | called on spawning                                  |
-| `on_press`  | called on `Interaction::Press`                      |
-| `on_enter`  | called on enter `Interaction::Hover`                |
-| `on_exit`   | called on enter `Interaction::None`                 |
+| `on_press`* | called on `Pressed`                                 |
+| `on_enter`* | called on enter `Hovered`                           |
+| `on_exit`*  | called on exit `Hovered`                            |
 | `on_change` | triggered by the user. Used to build custom widgets |
+
+Enabled by `picking` feature
 
 ## Special Helpers
 
@@ -127,7 +131,7 @@ These are local to the template and cannot be referenced outside.
 | ------------------ | -------------------------------------------------------------------- |
 | `id="my_node"`     | id marker (Adds `UiId(String)` Component)                            |
 | `target="my_node"` | target marker (Adds `UiTarget(Entity)` Component (resolved at build) |
-| `watch="my_node"`  | 'watch' another nodes `Interaction` for conditional styles           |
+| `watch="my_node"`  | 'watch' another nodes interaction for conditional styles           |
 
 ## Custom tags
 

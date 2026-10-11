@@ -16,7 +16,7 @@ https://github.com/user-attachments/assets/4eb22305-7762-404e-9093-806b6a155ede
   in your templates `on_press="start_game"`.
 - No widgets, no themes. Just bevy UI serialized with all the tools necessary to build anything
   in a reusable manor.
-- Optional `bevy_picking` support: `picking`
+- interaction styles and events require `features = ["picking"]`
 
 ```
 features = ["picking"]
@@ -26,6 +26,7 @@ features = ["picking"]
 
 | bevy | bevy_hui |
 | ---: | -------: |
+| 0.20 |      0.8 |
 | 0.19 |      0.7 |
 | 0.18 |      0.6 |
 | 0.17 |      0.5 |

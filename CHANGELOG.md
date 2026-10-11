@@ -1,3 +1,12 @@
+# 0.8
+
+- updated to bevy 0.20
+- interaction styles and events now use the picking `Hovered` and `Pressed` components
+- button interaction styles and events now require the picking feature
+- bevy_hui_widgets updated to 0.7.0
+- on_ui_enter no longer fires when a press is released
+- hover enter/exit events are mouse only, touch no longer triggers them
+
 # 0.4
 
 - updated to bevy 0.16

@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, ui::Pressed};
 use bevy_hui::prelude::*;
 
 /// # Select Widget
@@ -70,30 +70,29 @@ fn init_select(
 }
 
 fn open_list(
-    selects: Query<(&Interaction, &UiTarget), (With<SelectInput>, Changed<Interaction>)>,
+    selects: Query<(&UiTarget, Has<Pressed>), (With<SelectInput>, Added<Pressed>)>,
     mut styles: Query<&mut HtmlStyle>,
 ) {
-    for (interaction, target) in selects.iter() {
+    for (target, pressed) in selects.iter() {
+        if !pressed {
+            continue;
+        }
+
         let Ok(mut list_style) = styles.get_mut(**target) else {
             continue;
         };
 
-        match interaction {
-            Interaction::Pressed => {
-                list_style.computed.node.display = Display::Grid;
-            }
-            _ => (),
-        }
+        list_style.computed.node.display = Display::Grid;
     }
 }
 
 fn selection(
     mut events: MessageWriter<SelectionChangedEvent>,
-    options: Query<(Entity, &ChildOf, &Interaction, &SelectOption), Changed<Interaction>>,
+    options: Query<(Entity, &ChildOf, Has<Pressed>, &SelectOption), Added<Pressed>>,
     mut styles: Query<&mut HtmlStyle>,
 ) {
-    for (entity, parent, interaction, option) in options.iter() {
-        if !matches!(interaction, Interaction::Pressed) {
+    for (entity, parent, pressed, option) in options.iter() {
+        if !pressed {
             continue;
         }
 

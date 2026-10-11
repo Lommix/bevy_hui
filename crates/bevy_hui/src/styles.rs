@@ -1,13 +1,18 @@
 use crate::{
     animation::{AnimationDirection, Atlas},
-    build::InteractionObverser,
     data::{FontReference, StyleAttr},
 };
+#[cfg(feature = "picking")]
+use crate::build::InteractionObverser;
 use bevy::{
     ecs::{query::QueryEntityError, system::SystemParam},
     prelude::*,
     ui::widget::NodeImageMode,
 };
+#[cfg(feature = "picking")]
+use bevy::ui::Pressed;
+#[cfg(feature = "picking")]
+use bevy_picking::hover::Hovered;
 #[cfg(feature = "picking")]
 use bevy_picking::Pickable;
 use std::time::Duration;
@@ -17,7 +22,12 @@ impl Plugin for TransitionPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             Update,
-            (continues_interaction_checking, update_node_style).in_set(crate::HuiSystems::Style),
+            (
+                #[cfg(feature = "picking")]
+                continues_interaction_checking,
+                update_node_style,
+            )
+                .in_set(crate::HuiSystems::Style),
         );
         app.register_type::<PressedTimer>();
         app.register_type::<HoverTimer>();
@@ -66,60 +76,57 @@ impl InteractionTimer {
     }
 }
 
+#[cfg(feature = "picking")]
 fn continues_interaction_checking(
-    interactions: Query<(Entity, &Interaction), With<HtmlStyle>>,
+    interactions: Query<(Entity, &Hovered, Has<Pressed>), With<HtmlStyle>>,
     mut hovers: Query<&mut HoverTimer>,
     mut presseds: Query<&mut PressedTimer>,
     observer: Query<&InteractionObverser>,
     time: Res<Time<Real>>,
 ) {
-    interactions.iter().for_each(|(entity, interaction)| {
+    interactions.iter().for_each(|(entity, hovered, pressed)| {
         let subs = observer
             .get(entity)
             .map(|obs| obs.iter())
             .unwrap_or_default()
             .chain(std::iter::once(&entity));
 
-        match interaction {
-            Interaction::Pressed => {
-                // ++ pressed ++ hover
-                subs.for_each(|sub| {
-                    if let (Ok(mut htimer), Ok(mut ptimer)) =
-                        (hovers.get_mut(*sub), presseds.get_mut(*sub))
-                    {
-                        ptimer.forward(time.delta());
-                        htimer.forward(time.delta());
-                    } else {
-                        warn!("non interacting node obsering `{sub}`")
-                    }
-                });
-            }
-            Interaction::Hovered => {
-                // ++ hover -- pressed
-                subs.for_each(|sub| {
-                    if let (Ok(mut htimer), Ok(mut ptimer)) =
-                        (hovers.get_mut(*sub), presseds.get_mut(*sub))
-                    {
-                        ptimer.backward(time.delta());
-                        htimer.forward(time.delta());
-                    } else {
-                        warn!("non interacting node obsering `{sub}`")
-                    }
-                });
-            }
-            Interaction::None => {
-                // -- hover --pressed
-                subs.for_each(|sub| {
-                    if let (Ok(mut htimer), Ok(mut ptimer)) =
-                        (hovers.get_mut(*sub), presseds.get_mut(*sub))
-                    {
-                        ptimer.backward(time.delta());
-                        htimer.backward(time.delta());
-                    } else {
-                        warn!("non interacting node obsering `{sub}`")
-                    }
-                });
-            }
+        if pressed {
+            // ++ pressed ++ hover
+            subs.for_each(|sub| {
+                if let (Ok(mut htimer), Ok(mut ptimer)) =
+                    (hovers.get_mut(*sub), presseds.get_mut(*sub))
+                {
+                    ptimer.forward(time.delta());
+                    htimer.forward(time.delta());
+                } else {
+                    warn!("non interacting node obsering `{sub}`")
+                }
+            });
+        } else if hovered.get() {
+            // ++ hover -- pressed
+            subs.for_each(|sub| {
+                if let (Ok(mut htimer), Ok(mut ptimer)) =
+                    (hovers.get_mut(*sub), presseds.get_mut(*sub))
+                {
+                    ptimer.backward(time.delta());
+                    htimer.forward(time.delta());
+                } else {
+                    warn!("non interacting node obsering `{sub}`")
+                }
+            });
+        } else {
+            // -- hover --pressed
+            subs.for_each(|sub| {
+                if let (Ok(mut htimer), Ok(mut ptimer)) =
+                    (hovers.get_mut(*sub), presseds.get_mut(*sub))
+                {
+                    ptimer.backward(time.delta());
+                    htimer.backward(time.delta());
+                } else {
+                    warn!("non interacting node obsering `{sub}`")
+                }
+            });
         };
     });
 }
@@ -179,10 +186,10 @@ impl<'w, 's> UiStyleQuery<'w, 's> {
         });
 
         _ = self.node.get_mut(entity).map(|mut node| {
-            node.border_radius.top_left = computed.border_radius.top;
-            node.border_radius.top_right = computed.border_radius.right;
-            node.border_radius.bottom_right = computed.border_radius.bottom;
-            node.border_radius.bottom_left = computed.border_radius.left;
+            node.border_radius.top_left = computed.border_radius.top.into();
+            node.border_radius.top_right = computed.border_radius.right.into();
+            node.border_radius.bottom_right = computed.border_radius.bottom.into();
+            node.border_radius.bottom_left = computed.border_radius.left.into();
         });
 
         if let Some(computed_shadow) = computed.text_shadow.as_ref() {
@@ -281,13 +288,13 @@ impl<'w, 's> UiStyleQuery<'w, 's> {
             StyleAttr::BorderRadius(ui_rect) => {
                 _ = self.node.get_mut(entity).map(|mut node| {
                     node.border_radius.top_left =
-                        lerp_val(&computed.border_radius.top, &ui_rect.top, ratio);
+                        lerp_val(&computed.border_radius.top, &ui_rect.top, ratio).into();
                     node.border_radius.top_right =
-                        lerp_val(&computed.border_radius.right, &ui_rect.right, ratio);
+                        lerp_val(&computed.border_radius.right, &ui_rect.right, ratio).into();
                     node.border_radius.bottom_right =
-                        lerp_val(&computed.border_radius.bottom, &ui_rect.bottom, ratio);
+                        lerp_val(&computed.border_radius.bottom, &ui_rect.bottom, ratio).into();
                     node.border_radius.bottom_left =
-                        lerp_val(&computed.border_radius.left, &ui_rect.left, ratio);
+                        lerp_val(&computed.border_radius.left, &ui_rect.left, ratio).into();
                 });
             }
             StyleAttr::FlexDirection(flex_direction) => style.flex_direction = *flex_direction,
